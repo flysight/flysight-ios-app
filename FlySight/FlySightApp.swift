@@ -15,6 +15,7 @@ struct FlySightApp: App {
         WindowGroup {
             ContentView()
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
+                .environmentObject(BluetoothViewModel())
         }
     }
 }

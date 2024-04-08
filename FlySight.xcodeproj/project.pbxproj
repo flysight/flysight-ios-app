@@ -23,6 +23,7 @@
 		4CE4E9A32BBF010F002E028E /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		4CE4E9A52BBF010F002E028E /* Persistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence.swift; sourceTree = "<group>"; };
 		4CE4E9A82BBF010F002E028E /* FlySight.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = FlySight.xcdatamodel; sourceTree = "<group>"; };
+		4CE4E9AF2BBF3BB4002E028E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -55,6 +56,7 @@
 		4CE4E99B2BBF010E002E028E /* FlySight */ = {
 			isa = PBXGroup;
 			children = (
+				4CE4E9AF2BBF3BB4002E028E /* Info.plist */,
 				4CE4E99C2BBF010E002E028E /* FlySightApp.swift */,
 				4CE4E99E2BBF010E002E028E /* ContentView.swift */,
 				4CE4E9A02BBF010F002E028E /* Assets.xcassets */,
@@ -280,14 +282,18 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"FlySight/Preview Content\"";
-				DEVELOPMENT_TEAM = 3Y7VA9DX7V;
+				DEVELOPMENT_TEAM = L36ZF22GUH;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FlySight/Info.plist;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Can this app use Bluetooth?";
+				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "Can this app communicate with Bluetooth peripherals?";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -309,14 +315,18 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"FlySight/Preview Content\"";
-				DEVELOPMENT_TEAM = 3Y7VA9DX7V;
+				DEVELOPMENT_TEAM = L36ZF22GUH;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FlySight/Info.plist;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Can this app use Bluetooth?";
+				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "Can this app communicate with Bluetooth peripherals?";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

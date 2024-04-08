@@ -6,80 +6,118 @@
 //
 
 import SwiftUI
-import CoreData
+import CoreBluetooth
+
+// Define a structure to hold peripheral information
+struct PeripheralInfo: Identifiable {
+    let peripheral: CBPeripheral
+    var name: String {
+        peripheral.name ?? "Unnamed Device"
+    }
+    var rssi: Int
+    var id: UUID {
+        peripheral.identifier
+    }
+}
+
+class BluetoothViewModel: NSObject, ObservableObject {
+    private var centralManager: CBCentralManager?
+    @Published var peripheralInfos: [PeripheralInfo] = []
+
+    override init() {
+        super.init()
+        self.centralManager = CBCentralManager(delegate: self, queue: .main)
+    }
+
+    func sortPeripheralsByRSSI() {
+        DispatchQueue.main.async {
+            self.peripheralInfos.sort { $0.rssi > $1.rssi }
+        }
+    }
+
+    func connect(to peripheral: CBPeripheral) {
+        centralManager?.connect(peripheral, options: nil)
+    }
+
+    func disconnect(from peripheral: CBPeripheral) {
+        centralManager?.cancelPeripheralConnection(peripheral)
+    }
+}
+
+extension BluetoothViewModel: CBCentralManagerDelegate {
+    func centralManagerDidUpdateState(_ central: CBCentralManager) {
+        if central.state == .poweredOn {
+            self.centralManager?.scanForPeripherals(withServices: nil, options: [CBCentralManagerScanOptionAllowDuplicatesKey: true])
+        }
+    }
+
+    func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String : Any], rssi RSSI: NSNumber) {
+        DispatchQueue.main.async {
+            if let index = self.peripheralInfos.firstIndex(where: { $0.peripheral.identifier == peripheral.identifier }) {
+                // Update existing peripheral info with new RSSI
+                self.peripheralInfos[index].rssi = RSSI.intValue
+            } else {
+                // Add new peripheral info
+                let newPeripheralInfo = PeripheralInfo(peripheral: peripheral, rssi: RSSI.intValue)
+                self.peripheralInfos.append(newPeripheralInfo)
+            }
+        }
+    }
+
+    func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
+        // Handle successful connection, such as discovering services.
+    }
+
+    func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
+        // Handle peripheral disconnection if needed.
+    }
+}
 
 struct ContentView: View {
-    @Environment(\.managedObjectContext) private var viewContext
-
-    @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)],
-        animation: .default)
-    private var items: FetchedResults<Item>
+    @ObservedObject private var bluetoothViewModel = BluetoothViewModel()
 
     var body: some View {
         NavigationView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp!, formatter: itemFormatter)")
-                    } label: {
-                        Text(item.timestamp!, formatter: itemFormatter)
+            List(bluetoothViewModel.peripheralInfos) { peripheralInfo in
+                NavigationLink(destination: PeripheralDetailView(peripheralInfo: peripheralInfo)) {
+                    HStack {
+                        Text(peripheralInfo.name)
+                        Spacer()
+                        Text("RSSI: \(peripheralInfo.rssi)")
                     }
                 }
-                .onDelete(perform: deleteItems)
             }
+            .navigationTitle("Peripherals")
             .toolbar {
+                // Add a toolbar item for sorting
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                    Button("Sort") {
+                        bluetoothViewModel.sortPeripheralsByRSSI()
                     }
                 }
-            }
-            Text("Select an item")
-        }
-    }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(context: viewContext)
-            newItem.timestamp = Date()
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            offsets.map { items[$0] }.forEach(viewContext.delete)
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
             }
         }
     }
 }
 
-private let itemFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.dateStyle = .short
-    formatter.timeStyle = .medium
-    return formatter
-}()
+struct PeripheralDetailView: View {
+    var peripheralInfo: PeripheralInfo
+    @EnvironmentObject var bluetoothViewModel: BluetoothViewModel // Ensure BluetoothViewModel is provided as an environment object
+
+    var body: some View {
+        VStack {
+            Text(peripheralInfo.name)
+            Text("RSSI: \(peripheralInfo.rssi)")
+        }
+        .navigationTitle(peripheralInfo.name)
+        .onAppear {
+            bluetoothViewModel.connect(to: peripheralInfo.peripheral)
+        }
+        .onDisappear {
+            bluetoothViewModel.disconnect(from: peripheralInfo.peripheral)
+        }
+    }
+}
 
 #Preview {
     ContentView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
