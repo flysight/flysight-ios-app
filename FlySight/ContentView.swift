@@ -24,6 +24,9 @@ class BluetoothViewModel: NSObject, ObservableObject {
     private var centralManager: CBCentralManager?
     @Published var peripheralInfos: [PeripheralInfo] = []
 
+    let CRS_RX_UUID = CBUUID(string: "00000002-8e22-4541-9d4c-21edae82ed19")
+    let CRS_TX_UUID = CBUUID(string: "00000001-8e22-4541-9d4c-21edae82ed19")
+
     override init() {
         super.init()
         self.centralManager = CBCentralManager(delegate: self, queue: .main)
@@ -41,6 +44,30 @@ class BluetoothViewModel: NSObject, ObservableObject {
 
     func disconnect(from peripheral: CBPeripheral) {
         centralManager?.cancelPeripheralConnection(peripheral)
+    }
+
+    func requestDirectoryListing(forPeripheral peripheral: CBPeripheral, directory: String) {
+        guard let rxCharacteristic = findCharacteristic(byUuid: CRS_RX_UUID, inPeripheral: peripheral) else {
+            print("CRS_RX_UUID characteristic not found.")
+            return
+        }
+
+        let directoryCommand = Data([0x05]) + directory.data(using: .utf8)!
+        peripheral.writeValue(directoryCommand, for: rxCharacteristic, type: .withoutResponse)
+
+        // Ensure you've subscribed to notifications on the CRS_TX_UUID characteristic elsewhere in your code
+    }
+
+    func findCharacteristic(byUuid uuid: CBUUID, inPeripheral peripheral: CBPeripheral) -> CBCharacteristic? {
+        // First, safely unwrap `peripheral.services` to ensure it's not nil
+        guard let services = peripheral.services else { return nil }
+
+        // Then, iterate over each service's characteristics.
+        // Use compactMap to safely deal with optional characteristics arrays and flatten the result.
+        let characteristics = services.compactMap { $0.characteristics }.flatMap { $0 }
+
+        // Finally, find the first characteristic that matches the UUID.
+        return characteristics.first { $0.uuid == uuid }
     }
 }
 
@@ -65,11 +92,66 @@ extension BluetoothViewModel: CBCentralManagerDelegate {
     }
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-        // Handle successful connection, such as discovering services.
+        print("Connected to \(peripheral.name ?? "Unknown Device")")
+
+        // Set this object as the delegate for the peripheral to receive peripheral delegate callbacks.
+        peripheral.delegate = self
+
+        // Optionally start discovering services or characteristics here
+        peripheral.discoverServices(nil)  // Passing nil will discover all services
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
-        // Handle peripheral disconnection if needed.
+        print("Disconnected from \(peripheral.name ?? "Unknown Device")")
+    }
+}
+
+extension BluetoothViewModel: CBPeripheralDelegate {
+    func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
+        guard error == nil else {
+            print("Error while updating value for characteristic \(characteristic.uuid): \(error!.localizedDescription)")
+            return
+        }
+
+        // Check if this is the characteristic you're interested in
+        if characteristic.uuid == CRS_TX_UUID {
+            // Handle the characteristic value update
+            // For example, parsing the data for a directory listing
+            if let data = characteristic.value {
+                // Parse the data as needed
+                print("Received data from \(characteristic.uuid): \(data)")
+                // Update your model/UI as appropriate
+            }
+        }
+    }
+
+    func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
+        if let error = error {
+            print("Error discovering services: \(error.localizedDescription)")
+            return
+        }
+
+        guard let services = peripheral.services else { return }
+        for service in services {
+            // Discover characteristics for services of interest
+            peripheral.discoverCharacteristics(nil, for: service)
+        }
+    }
+
+    func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
+        guard error == nil else {
+            print("Error discovering characteristics: \(error!.localizedDescription)")
+            return
+        }
+
+        if let characteristics = service.characteristics {
+            for characteristic in characteristics {
+                if characteristic.uuid == CRS_TX_UUID {
+                    // Subscribe to this characteristic's notifications
+                    peripheral.setNotifyValue(true, for: characteristic)
+                }
+            }
+        }
     }
 }
 
