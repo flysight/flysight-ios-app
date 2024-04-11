@@ -11,10 +11,10 @@ import CoreBluetooth
 // Define a structure to hold peripheral information
 struct PeripheralInfo: Identifiable {
     let peripheral: CBPeripheral
+    var rssi: Int
     var name: String {
         peripheral.name ?? "Unnamed Device"
     }
-    var rssi: Int
     var id: UUID {
         peripheral.identifier
     }
@@ -22,10 +22,14 @@ struct PeripheralInfo: Identifiable {
 
 class BluetoothViewModel: NSObject, ObservableObject {
     private var centralManager: CBCentralManager?
+
     @Published var peripheralInfos: [PeripheralInfo] = []
 
-    let CRS_RX_UUID = CBUUID(string: "00000002-8e22-4541-9d4c-21edae82ed19")
-    let CRS_TX_UUID = CBUUID(string: "00000001-8e22-4541-9d4c-21edae82ed19")
+    let MFG_UUID = CBUUID(string: "2A29")
+
+    private var mfgCharacteristic: CBCharacteristic?
+
+    @Published var manufacturerName: String? = nil
 
     override init() {
         super.init()
@@ -45,36 +49,12 @@ class BluetoothViewModel: NSObject, ObservableObject {
     func disconnect(from peripheral: CBPeripheral) {
         centralManager?.cancelPeripheralConnection(peripheral)
     }
-
-    func requestDirectoryListing(forPeripheral peripheral: CBPeripheral, directory: String) {
-        guard let rxCharacteristic = findCharacteristic(byUuid: CRS_RX_UUID, inPeripheral: peripheral) else {
-            print("CRS_RX_UUID characteristic not found.")
-            return
-        }
-
-        let directoryCommand = Data([0x05]) + directory.data(using: .utf8)!
-        peripheral.writeValue(directoryCommand, for: rxCharacteristic, type: .withoutResponse)
-
-        // Ensure you've subscribed to notifications on the CRS_TX_UUID characteristic elsewhere in your code
-    }
-
-    func findCharacteristic(byUuid uuid: CBUUID, inPeripheral peripheral: CBPeripheral) -> CBCharacteristic? {
-        // First, safely unwrap `peripheral.services` to ensure it's not nil
-        guard let services = peripheral.services else { return nil }
-
-        // Then, iterate over each service's characteristics.
-        // Use compactMap to safely deal with optional characteristics arrays and flatten the result.
-        let characteristics = services.compactMap { $0.characteristics }.flatMap { $0 }
-
-        // Finally, find the first characteristic that matches the UUID.
-        return characteristics.first { $0.uuid == uuid }
-    }
 }
 
 extension BluetoothViewModel: CBCentralManagerDelegate {
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
         if central.state == .poweredOn {
-            self.centralManager?.scanForPeripherals(withServices: nil, options: [CBCentralManagerScanOptionAllowDuplicatesKey: true])
+            self.centralManager?.scanForPeripherals(withServices: nil, options: nil)
         }
     }
 
@@ -92,7 +72,7 @@ extension BluetoothViewModel: CBCentralManagerDelegate {
     }
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-        print("Connected to \(peripheral.name ?? "Unknown Device")")
+        print("Connected to \(peripheral.name ?? "Unknown Device") (peripheral ID = \(peripheral.identifier))")
 
         // Set this object as the delegate for the peripheral to receive peripheral delegate callbacks.
         peripheral.delegate = self
@@ -102,25 +82,31 @@ extension BluetoothViewModel: CBCentralManagerDelegate {
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
-        print("Disconnected from \(peripheral.name ?? "Unknown Device")")
+        print("Disconnected from \(peripheral.name ?? "Unknown Device") (peripheral ID = \(peripheral.identifier))")
+
+        // Reset the characteristic references
+        mfgCharacteristic = nil
+
+        // Reset the manufacturer name
+        manufacturerName = nil
+
+        // Optionally: Handle any UI updates or perform cleanup after disconnection
+        // This might involve updating published properties or notifying the user
     }
 }
 
 extension BluetoothViewModel: CBPeripheralDelegate {
+    // Assuming CRS_TX_UUID is the characteristic where directory listing data will be notified
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-        guard error == nil else {
-            print("Error while updating value for characteristic \(characteristic.uuid): \(error!.localizedDescription)")
+        guard error == nil, characteristic.uuid == MFG_UUID else {
+            print("Error reading characteristic: \(error?.localizedDescription ?? "Unknown error")")
             return
         }
 
-        // Check if this is the characteristic you're interested in
-        if characteristic.uuid == CRS_TX_UUID {
-            // Handle the characteristic value update
-            // For example, parsing the data for a directory listing
-            if let data = characteristic.value {
-                // Parse the data as needed
-                print("Received data from \(characteristic.uuid): \(data)")
-                // Update your model/UI as appropriate
+        if let data = characteristic.value, let manufacturerName = String(data: data, encoding: .utf8) {
+            DispatchQueue.main.async {
+                // Assuming you want to display this in your PeripheralDetailView
+                self.manufacturerName = manufacturerName // You'll need to add `manufacturerName` to your ViewModel
             }
         }
     }
@@ -133,23 +119,18 @@ extension BluetoothViewModel: CBPeripheralDelegate {
 
         guard let services = peripheral.services else { return }
         for service in services {
-            // Discover characteristics for services of interest
-            peripheral.discoverCharacteristics(nil, for: service)
+            peripheral.discoverCharacteristics([MFG_UUID], for: service)
         }
     }
 
     func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
-        guard error == nil else {
-            print("Error discovering characteristics: \(error!.localizedDescription)")
-            return
-        }
+        guard let characteristics = service.characteristics else { return }
 
-        if let characteristics = service.characteristics {
-            for characteristic in characteristics {
-                if characteristic.uuid == CRS_TX_UUID {
-                    // Subscribe to this characteristic's notifications
-                    peripheral.setNotifyValue(true, for: characteristic)
-                }
+        for characteristic in characteristics {
+            if characteristic.uuid == MFG_UUID {
+                print("Setting manufacturer characteristic (peripheral ID = \(peripheral.identifier))")
+                mfgCharacteristic = characteristic
+                peripheral.readValue(for: characteristic) // Initiate read operation
             }
         }
     }
@@ -184,15 +165,19 @@ struct ContentView: View {
 
 struct PeripheralDetailView: View {
     var peripheralInfo: PeripheralInfo
-    @EnvironmentObject var bluetoothViewModel: BluetoothViewModel // Ensure BluetoothViewModel is provided as an environment object
+    @EnvironmentObject var bluetoothViewModel: BluetoothViewModel
 
     var body: some View {
         VStack {
-            Text(peripheralInfo.name)
-            Text("RSSI: \(peripheralInfo.rssi)")
+            if let manufacturerName = bluetoothViewModel.manufacturerName {
+                Text("Manufacturer: \(manufacturerName)")
+            } else {
+                Text("Manufacturer: Unknown")
+            }
         }
         .navigationTitle(peripheralInfo.name)
         .onAppear {
+            // Ensure we're connected to the correct peripheral
             bluetoothViewModel.connect(to: peripheralInfo.peripheral)
         }
         .onDisappear {
@@ -200,6 +185,7 @@ struct PeripheralDetailView: View {
         }
     }
 }
+
 
 #Preview {
     ContentView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
