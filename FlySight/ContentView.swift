@@ -7,6 +7,7 @@
 
 import SwiftUI
 import CoreBluetooth
+import Foundation
 
 // Define a structure to hold peripheral information
 struct PeripheralInfo: Identifiable {
@@ -20,36 +21,84 @@ struct PeripheralInfo: Identifiable {
     }
 }
 
+struct DirectoryEntry: Identifiable {
+    let id = UUID()
+    let size: UInt32
+    let date: Date
+    let attributes: String
+    let name: String
+    
+    // Helper to format the date
+    var formattedDate: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        return formatter.string(from: date)
+    }
+}
+
 class BluetoothViewModel: NSObject, ObservableObject {
     private var centralManager: CBCentralManager?
-
+    
     @Published var peripheralInfos: [PeripheralInfo] = []
-
+    
     let CRS_RX_UUID = CBUUID(string: "00000002-8e22-4541-9d4c-21edae82ed19")
     let CRS_TX_UUID = CBUUID(string: "00000001-8e22-4541-9d4c-21edae82ed19")
-
+    
     private var rxCharacteristic: CBCharacteristic?
     private var txCharacteristic: CBCharacteristic?
-
-    @Published var txData: String? = nil
-
+    
+    @Published var directoryEntries: [DirectoryEntry] = []
+    
     override init() {
         super.init()
         self.centralManager = CBCentralManager(delegate: self, queue: .main)
     }
-
+    
     func sortPeripheralsByRSSI() {
         DispatchQueue.main.async {
             self.peripheralInfos.sort { $0.rssi > $1.rssi }
         }
     }
-
+    
     func connect(to peripheral: CBPeripheral) {
         centralManager?.connect(peripheral, options: nil)
     }
-
+    
     func disconnect(from peripheral: CBPeripheral) {
         centralManager?.cancelPeripheralConnection(peripheral)
+    }
+    
+    func parseDirectoryEntry(from data: Data) -> DirectoryEntry? {
+        guard data.count == 24 else { return nil } // Ensure data length is as expected
+
+        let size: UInt32 = data.subdata(in: 2..<6).withUnsafeBytes { $0.load(as: UInt32.self) }
+        let fdate: UInt16 = data.subdata(in: 6..<8).withUnsafeBytes { $0.load(as: UInt16.self) }
+        let ftime: UInt16 = data.subdata(in: 8..<10).withUnsafeBytes { $0.load(as: UInt16.self) }
+        let fattrib: UInt8 = data.subdata(in: 10..<11).withUnsafeBytes { $0.load(as: UInt8.self) }
+
+        let nameData = data.subdata(in: 11..<24) // Assuming the rest is the name
+        let nameDataNullTerminated = nameData.split(separator: 0, maxSplits: 1, omittingEmptySubsequences: false).first ?? Data() // Split at the first null byte
+        guard let name = String(data: nameDataNullTerminated, encoding: .utf8), !name.isEmpty else { return nil } // Check for empty name
+
+        // Decode date and time
+        let year = Int((fdate >> 9) & 0x7F) + 1980
+        let month = Int((fdate >> 5) & 0x0F)
+        let day = Int(fdate & 0x1F)
+        let hour = Int((ftime >> 11) & 0x1F)
+        let minute = Int((ftime >> 5) & 0x3F)
+        let second = Int((ftime & 0x1F) * 2) // Multiply by 2 to get the actual seconds
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        guard let date = calendar.date(from: DateComponents(year: year, month: month, day: day, hour: hour, minute: minute, second: second)) else { return nil }
+
+        // Decode attributes
+        let attributesOrder = ["r", "h", "s", "a", "d"]
+        let attribText = attributesOrder.enumerated().map { index, letter in
+            (fattrib & (1 << index)) != 0 ? letter : "-"
+        }.joined()
+
+        return DirectoryEntry(size: size, date: date, attributes: attribText, name: name)
     }
 }
 
@@ -90,8 +139,8 @@ extension BluetoothViewModel: CBCentralManagerDelegate {
         rxCharacteristic = nil
         txCharacteristic = nil
 
-        // Reset the TX data
-        txData = nil
+        // Reset the directory listings
+        directoryEntries = []
 
         // Optionally: Handle any UI updates or perform cleanup after disconnection
         // This might involve updating published properties or notifying the user
@@ -106,11 +155,10 @@ extension BluetoothViewModel: CBPeripheralDelegate {
             return
         }
 
-        if characteristic.uuid == CRS_TX_UUID {
-            if let data = characteristic.value {
-                let hexString = data.map { String(format: "%02X", $0) }.joined()
+        if let data = characteristic.value, characteristic.uuid == CRS_TX_UUID {
+            if let directoryEntry = parseDirectoryEntry(from: data) {
                 DispatchQueue.main.async {
-                    self.txData = hexString // Ensure txData is of type String in your ViewModel
+                    self.directoryEntries.append(directoryEntry)
                 }
             }
         }
@@ -146,7 +194,7 @@ extension BluetoothViewModel: CBPeripheralDelegate {
                 }
             }
             
-            if let tx = txCharacteristic, let rx = rxCharacteristic {
+            if let _ = txCharacteristic, let rx = rxCharacteristic {
                 let directory = "/"
                 let directoryCommand = Data([0x05]) + directory.data(using: .utf8)!
                 peripheral.writeValue(directoryCommand, for: rx, type: .withoutResponse)
@@ -187,11 +235,18 @@ struct PeripheralDetailView: View {
     @EnvironmentObject var bluetoothViewModel: BluetoothViewModel
 
     var body: some View {
-        VStack {
-            if let txData = bluetoothViewModel.txData {
-                Text("TX data: \(txData)")
-            } else {
-                Text("TX data: nil")
+        List(bluetoothViewModel.directoryEntries) { entry in
+            VStack(alignment: .leading) {
+                Text(entry.name)
+                    .font(.headline)
+                HStack {
+                    Text("Size: \(entry.size) bytes")
+                    Spacer()
+                    Text(entry.formattedDate)
+                }
+                .font(.caption)
+                Text("Attributes: \(entry.attributes)")
+                    .font(.caption)
             }
         }
         .navigationTitle(peripheralInfo.name)
