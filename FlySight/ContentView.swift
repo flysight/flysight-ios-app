@@ -54,7 +54,7 @@ class BluetoothViewModel: NSObject, ObservableObject {
 extension BluetoothViewModel: CBCentralManagerDelegate {
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
         if central.state == .poweredOn {
-            self.centralManager?.scanForPeripherals(withServices: nil, options: nil)
+            self.centralManager?.scanForPeripherals(withServices: nil, options: [CBCentralManagerScanOptionAllowDuplicatesKey: true])
         }
     }
 
