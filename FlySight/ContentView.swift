@@ -237,32 +237,32 @@ struct ConnectView: View {
     @ObservedObject var bluetoothViewModel: BluetoothViewModel
 
     var body: some View {
-        NavigationView {
-            List(bluetoothViewModel.peripheralInfos) { peripheralInfo in
-                Button(action: {
-                    if bluetoothViewModel.connectedPeripheral?.peripheral.identifier == peripheralInfo.peripheral.identifier {
-                        // Disconnect if already connected to this peripheral
+        List(bluetoothViewModel.peripheralInfos) { peripheralInfo in
+            HStack {
+                VStack(alignment: .leading) {
+                    Text(peripheralInfo.name)
+                    Text("RSSI: \(peripheralInfo.rssi)").font(.caption)
+                }
+                Spacer()
+                if bluetoothViewModel.connectedPeripheral?.id == peripheralInfo.id {
+                    Button("Disconnect") {
                         bluetoothViewModel.disconnect(from: peripheralInfo.peripheral)
                         bluetoothViewModel.connectedPeripheral = nil
-                    } else {
-                        // Connect to the new peripheral
+                    }
+                    .foregroundColor(.red)
+                } else {
+                    Button("Connect") {
                         bluetoothViewModel.connect(to: peripheralInfo.peripheral)
                         bluetoothViewModel.connectedPeripheral = peripheralInfo
                     }
-                }) {
-                    HStack {
-                        Text(peripheralInfo.name)
-                        Spacer()
-                        Text("RSSI: \(peripheralInfo.rssi)")
-                    }
+                    .foregroundColor(.blue)
                 }
             }
-            .navigationTitle("Peripherals")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Sort") {
-                        bluetoothViewModel.sortPeripheralsByRSSI()
-                    }
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Sort") {
+                    bluetoothViewModel.sortPeripheralsByRSSI()
                 }
             }
         }
@@ -273,22 +273,19 @@ struct FileExplorerView: View {
     @ObservedObject var bluetoothViewModel: BluetoothViewModel
 
     var body: some View {
-        NavigationView {
-            List(bluetoothViewModel.directoryEntries) { entry in
-                VStack(alignment: .leading) {
-                    Text(entry.name)
-                        .font(.headline)
-                    HStack {
-                        Text("Size: \(entry.size) bytes")
-                        Spacer()
-                        Text(entry.formattedDate)
-                    }
-                    .font(.caption)
-                    Text("Attributes: \(entry.attributes)")
-                        .font(.caption)
+        List(bluetoothViewModel.directoryEntries) { entry in
+            VStack(alignment: .leading) {
+                Text(entry.name)
+                    .font(.headline)
+                HStack {
+                    Text("Size: \(entry.size) bytes")
+                    Spacer()
+                    Text(entry.formattedDate)
                 }
+                .font(.caption)
+                Text("Attributes: \(entry.attributes)")
+                    .font(.caption)
             }
-            .navigationTitle(bluetoothViewModel.connectedPeripheral?.name ?? "File Explorer")
         }
     }
 }
