@@ -207,9 +207,37 @@ struct ContentView: View {
     @ObservedObject private var bluetoothViewModel = BluetoothViewModel()
 
     var body: some View {
+        TabView {
+            ConnectView(bluetoothViewModel: bluetoothViewModel)
+                .tabItem {
+                    Label("Connect", systemImage: "dot.radiowaves.left.and.right")
+                }
+
+            FileExplorerView(bluetoothViewModel: bluetoothViewModel)
+                .tabItem {
+                    Label("Files", systemImage: "folder")
+                }
+
+            LiveDataView(bluetoothViewModel: bluetoothViewModel)
+                .tabItem {
+                    Label("Live Data", systemImage: "waveform.path.ecg")
+                }
+
+            StartingPistolView(bluetoothViewModel: bluetoothViewModel)
+                .tabItem {
+                    Label("Start Pistol", systemImage: "timer")
+                }
+        }
+    }
+}
+
+struct ConnectView: View {
+    @ObservedObject var bluetoothViewModel: BluetoothViewModel
+
+    var body: some View {
         NavigationView {
             List(bluetoothViewModel.peripheralInfos) { peripheralInfo in
-                NavigationLink(destination: PeripheralDetailView(peripheralInfo: peripheralInfo)) {
+                NavigationLink(destination: PeripheralDetailView(peripheralInfo: peripheralInfo, bluetoothViewModel: bluetoothViewModel)) {
                     HStack {
                         Text(peripheralInfo.name)
                         Spacer()
@@ -219,7 +247,6 @@ struct ContentView: View {
             }
             .navigationTitle("Peripherals")
             .toolbar {
-                // Add a toolbar item for sorting
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Sort") {
                         bluetoothViewModel.sortPeripheralsByRSSI()
@@ -230,9 +257,49 @@ struct ContentView: View {
     }
 }
 
+struct FileExplorerView: View {
+    @ObservedObject var bluetoothViewModel: BluetoothViewModel
+
+    var body: some View {
+        List(bluetoothViewModel.directoryEntries) { entry in
+            VStack(alignment: .leading) {
+                Text(entry.name)
+                    .font(.headline)
+                HStack {
+                    Text("Size: \(entry.size) bytes")
+                    Spacer()
+                    Text(entry.formattedDate)
+                }
+                .font(.caption)
+                Text("Attributes: \(entry.attributes)")
+                    .font(.caption)
+            }
+        }
+        .navigationTitle("File Explorer")
+    }
+}
+
+struct LiveDataView: View {
+    @ObservedObject var bluetoothViewModel: BluetoothViewModel
+
+    var body: some View {
+        Text("Live Data will be displayed here.")
+            .navigationTitle("Live Data")
+    }
+}
+
+struct StartingPistolView: View {
+    @ObservedObject var bluetoothViewModel: BluetoothViewModel
+
+    var body: some View {
+        Text("Starting Pistol feature will be controlled here.")
+            .navigationTitle("Starting Pistol")
+    }
+}
+
 struct PeripheralDetailView: View {
     var peripheralInfo: PeripheralInfo
-    @EnvironmentObject var bluetoothViewModel: BluetoothViewModel
+    @ObservedObject var bluetoothViewModel: BluetoothViewModel
 
     var body: some View {
         List(bluetoothViewModel.directoryEntries) { entry in
@@ -251,7 +318,6 @@ struct PeripheralDetailView: View {
         }
         .navigationTitle(peripheralInfo.name)
         .onAppear {
-            // Ensure we're connected to the correct peripheral
             bluetoothViewModel.connect(to: peripheralInfo.peripheral)
         }
         .onDisappear {
@@ -259,7 +325,6 @@ struct PeripheralDetailView: View {
         }
     }
 }
-
 
 #Preview {
     ContentView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
