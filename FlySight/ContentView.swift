@@ -49,6 +49,8 @@ class BluetoothViewModel: NSObject, ObservableObject {
     
     @Published var directoryEntries: [DirectoryEntry] = []
     
+    @Published var connectedPeripheral: PeripheralInfo?
+
     override init() {
         super.init()
         self.centralManager = CBCentralManager(delegate: self, queue: .main)
@@ -237,7 +239,17 @@ struct ConnectView: View {
     var body: some View {
         NavigationView {
             List(bluetoothViewModel.peripheralInfos) { peripheralInfo in
-                NavigationLink(destination: PeripheralDetailView(peripheralInfo: peripheralInfo, bluetoothViewModel: bluetoothViewModel)) {
+                Button(action: {
+                    if bluetoothViewModel.connectedPeripheral?.peripheral.identifier == peripheralInfo.peripheral.identifier {
+                        // Disconnect if already connected to this peripheral
+                        bluetoothViewModel.disconnect(from: peripheralInfo.peripheral)
+                        bluetoothViewModel.connectedPeripheral = nil
+                    } else {
+                        // Connect to the new peripheral
+                        bluetoothViewModel.connect(to: peripheralInfo.peripheral)
+                        bluetoothViewModel.connectedPeripheral = peripheralInfo
+                    }
+                }) {
                     HStack {
                         Text(peripheralInfo.name)
                         Spacer()
@@ -261,21 +273,23 @@ struct FileExplorerView: View {
     @ObservedObject var bluetoothViewModel: BluetoothViewModel
 
     var body: some View {
-        List(bluetoothViewModel.directoryEntries) { entry in
-            VStack(alignment: .leading) {
-                Text(entry.name)
-                    .font(.headline)
-                HStack {
-                    Text("Size: \(entry.size) bytes")
-                    Spacer()
-                    Text(entry.formattedDate)
-                }
-                .font(.caption)
-                Text("Attributes: \(entry.attributes)")
+        NavigationView {
+            List(bluetoothViewModel.directoryEntries) { entry in
+                VStack(alignment: .leading) {
+                    Text(entry.name)
+                        .font(.headline)
+                    HStack {
+                        Text("Size: \(entry.size) bytes")
+                        Spacer()
+                        Text(entry.formattedDate)
+                    }
                     .font(.caption)
+                    Text("Attributes: \(entry.attributes)")
+                        .font(.caption)
+                }
             }
+            .navigationTitle(bluetoothViewModel.connectedPeripheral?.name ?? "File Explorer")
         }
-        .navigationTitle("File Explorer")
     }
 }
 
@@ -294,35 +308,6 @@ struct StartingPistolView: View {
     var body: some View {
         Text("Starting Pistol feature will be controlled here.")
             .navigationTitle("Starting Pistol")
-    }
-}
-
-struct PeripheralDetailView: View {
-    var peripheralInfo: PeripheralInfo
-    @ObservedObject var bluetoothViewModel: BluetoothViewModel
-
-    var body: some View {
-        List(bluetoothViewModel.directoryEntries) { entry in
-            VStack(alignment: .leading) {
-                Text(entry.name)
-                    .font(.headline)
-                HStack {
-                    Text("Size: \(entry.size) bytes")
-                    Spacer()
-                    Text(entry.formattedDate)
-                }
-                .font(.caption)
-                Text("Attributes: \(entry.attributes)")
-                    .font(.caption)
-            }
-        }
-        .navigationTitle(peripheralInfo.name)
-        .onAppear {
-            bluetoothViewModel.connect(to: peripheralInfo.peripheral)
-        }
-        .onDisappear {
-            bluetoothViewModel.disconnect(from: peripheralInfo.peripheral)
-        }
     }
 }
 
