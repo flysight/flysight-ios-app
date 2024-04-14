@@ -56,7 +56,9 @@ class BluetoothViewModel: NSObject, ObservableObject {
     
     @Published var connectedPeripheral: PeripheralInfo?
 
-    @Published var currentPath: [String] = [""]  // Start with the root directory
+    @Published var currentPath: [String] = []  // Start with the root directory
+
+    @Published var isAwaitingResponse = false
 
     override init() {
         super.init()
@@ -111,12 +113,16 @@ class BluetoothViewModel: NSObject, ObservableObject {
     }
 
     func changeDirectory(to newDirectory: String) {
+        guard !isAwaitingResponse else { return }
+
         // Append new directory to the path
         currentPath.append(newDirectory)
         loadDirectoryEntries()
     }
 
     func goUpOneDirectoryLevel() {
+        guard !isAwaitingResponse else { return }
+
         // Remove the last directory in the path
         if currentPath.count > 0 {
             currentPath.removeLast()
@@ -127,6 +133,9 @@ class BluetoothViewModel: NSObject, ObservableObject {
     private func loadDirectoryEntries() {
         // Reset the directory listings
         directoryEntries = []
+
+        // Set waiting flag
+        isAwaitingResponse = true
 
         if let peripheral = connectedPeripheral?.peripheral, let rx = rxCharacteristic {
             let directory = ([""] + currentPath).joined(separator: "/")
@@ -184,16 +193,18 @@ extension BluetoothViewModel: CBCentralManagerDelegate {
 extension BluetoothViewModel: CBPeripheralDelegate {
     // Assuming CRS_TX_UUID is the characteristic where directory listing data will be notified
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-        guard error == nil else {
+        guard error == nil, let data = characteristic.value else {
+            isAwaitingResponse = false
             print("Error reading characteristic: \(error?.localizedDescription ?? "Unknown error")")
             return
         }
 
-        if let data = characteristic.value, characteristic.uuid == CRS_TX_UUID {
-            if let directoryEntry = parseDirectoryEntry(from: data) {
-                DispatchQueue.main.async {
+        if characteristic.uuid == CRS_TX_UUID {
+            DispatchQueue.main.async {
+                if let directoryEntry = self.parseDirectoryEntry(from: data) {
                     self.directoryEntries.append(directoryEntry)
                 }
+                self.isAwaitingResponse = false // Unlock after processing
             }
         }
     }
