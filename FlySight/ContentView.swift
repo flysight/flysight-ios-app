@@ -27,7 +27,12 @@ struct DirectoryEntry: Identifiable {
     let date: Date
     let attributes: String
     let name: String
-    
+
+    // Determine if the entry is a folder
+    var isFolder: Bool {
+        attributes.last == "d"
+    }
+
     // Helper to format the date
     var formattedDate: String {
         let formatter = DateFormatter()
@@ -50,6 +55,8 @@ class BluetoothViewModel: NSObject, ObservableObject {
     @Published var directoryEntries: [DirectoryEntry] = []
     
     @Published var connectedPeripheral: PeripheralInfo?
+
+    @Published var currentPath: [String] = [""]  // Start with the root directory
 
     override init() {
         super.init()
@@ -101,6 +108,31 @@ class BluetoothViewModel: NSObject, ObservableObject {
         }.joined()
 
         return DirectoryEntry(size: size, date: date, attributes: attribText, name: name)
+    }
+
+    func changeDirectory(to newDirectory: String) {
+        // Append new directory to the path
+        currentPath.append(newDirectory)
+        loadDirectoryEntries()
+    }
+
+    func goUpOneDirectoryLevel() {
+        // Remove the last directory in the path
+        if currentPath.count > 0 {
+            currentPath.removeLast()
+            loadDirectoryEntries()
+        }
+    }
+
+    private func loadDirectoryEntries() {
+        // Reset the directory listings
+        directoryEntries = []
+
+        if let peripheral = connectedPeripheral?.peripheral, let rx = rxCharacteristic {
+            let directory = ([""] + currentPath).joined(separator: "/")
+            let directoryCommand = Data([0x05]) + directory.data(using: .utf8)!
+            peripheral.writeValue(directoryCommand, for: rx, type: .withoutResponse)
+        }
     }
 }
 
@@ -196,10 +228,12 @@ extension BluetoothViewModel: CBPeripheralDelegate {
                 }
             }
             
-            if let _ = txCharacteristic, let rx = rxCharacteristic {
-                let directory = "/"
-                let directoryCommand = Data([0x05]) + directory.data(using: .utf8)!
-                peripheral.writeValue(directoryCommand, for: rx, type: .withoutResponse)
+            if let _ = txCharacteristic, let _ = rxCharacteristic {
+                // Initialize current path
+                currentPath = []
+
+                // Initialize directory entries
+                loadDirectoryEntries()
             }
         }
     }
@@ -273,20 +307,62 @@ struct FileExplorerView: View {
     @ObservedObject var bluetoothViewModel: BluetoothViewModel
 
     var body: some View {
-        List(bluetoothViewModel.directoryEntries) { entry in
-            VStack(alignment: .leading) {
-                Text(entry.name)
-                    .font(.headline)
-                HStack {
-                    Text("Size: \(entry.size) bytes")
-                    Spacer()
-                    Text(entry.formattedDate)
+        NavigationView {
+            List {
+                ForEach(bluetoothViewModel.directoryEntries) { entry in
+                    Button(action: {
+                        if entry.isFolder {
+                            bluetoothViewModel.changeDirectory(to: entry.name)
+                        }
+                    }) {
+                        HStack {
+                            Image(systemName: entry.isFolder ? "folder.fill" : "doc.plain")
+                            VStack(alignment: .leading) {
+                                Text(entry.name)
+                                    .font(.headline)
+                                    .foregroundColor(entry.isFolder ? .blue : .primary)
+                                HStack {
+                                    Text("Size: \(entry.size) bytes")
+                                    Spacer()
+                                    Text(entry.formattedDate)
+                                }
+                                .font(.caption)
+                                Text("Attributes: \(entry.attributes)")
+                                    .font(.caption)
+                            }
+                        }
+                    }
                 }
-                .font(.caption)
-                Text("Attributes: \(entry.attributes)")
-                    .font(.caption)
+            }
+            .navigationTitle("Files")
+            .toolbar {
+                ToolbarItemGroup(placement: .navigationBarLeading) {
+                    backButton
+                }
+                ToolbarItemGroup(placement: .principal) {
+                    Text(currentPathDisplay())
+                        .font(.caption)
+                        .lineLimit(1)
+                        .truncationMode(.head)
+                }
             }
         }
+    }
+
+    private var backButton: some View {
+        Button(action: {
+            bluetoothViewModel.goUpOneDirectoryLevel()
+        }) {
+            HStack {
+                Image(systemName: "arrow.backward")
+                Text("Back")
+            }
+        }
+        .disabled(bluetoothViewModel.currentPath.count == 0)
+    }
+
+    private func currentPathDisplay() -> String {
+        bluetoothViewModel.currentPath.joined(separator: "/")
     }
 }
 
