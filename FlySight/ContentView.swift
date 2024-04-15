@@ -182,6 +182,9 @@ extension BluetoothViewModel: CBCentralManagerDelegate {
         rxCharacteristic = nil
         txCharacteristic = nil
 
+        // Initialize current path
+        currentPath = []
+
         // Reset the directory listings
         directoryEntries = []
 
@@ -240,9 +243,6 @@ extension BluetoothViewModel: CBPeripheralDelegate {
             }
             
             if let _ = txCharacteristic, let _ = rxCharacteristic {
-                // Initialize current path
-                currentPath = []
-
                 // Initialize directory entries
                 loadDirectoryEntries()
             }
