@@ -28,9 +28,12 @@ struct DirectoryEntry: Identifiable {
     let attributes: String
     let name: String
 
-    // Determine if the entry is a folder
     var isFolder: Bool {
-        attributes.last == "d"
+        attributes.contains("d")
+    }
+
+    var isHidden: Bool {
+        attributes.contains("h")
     }
 
     // Helper to format the date
@@ -331,7 +334,7 @@ struct FileExplorerView: View {
     var body: some View {
         NavigationView {
             List {
-                ForEach(bluetoothViewModel.directoryEntries) { entry in
+                ForEach(bluetoothViewModel.directoryEntries.filter { !$0.isHidden }) { entry in
                     Button(action: {
                         if entry.isFolder {
                             bluetoothViewModel.changeDirectory(to: entry.name)
@@ -343,15 +346,14 @@ struct FileExplorerView: View {
                                 Text(entry.name)
                                     .font(.headline)
                                     .foregroundColor(entry.isFolder ? .blue : .primary)
-                                HStack {
-                                    Text("Size: \(entry.size) bytes")
-                                    Spacer()
-                                    Text(entry.formattedDate)
+                                if !entry.isFolder {
+                                    Text("\(entry.size.fileSize())")
+                                        .font(.caption)
                                 }
-                                .font(.caption)
-                                Text("Attributes: \(entry.attributes)")
-                                    .font(.caption)
                             }
+                            Spacer()
+                            Text(entry.formattedDate)
+                                .font(.caption)
                         }
                     }
                 }
@@ -385,6 +387,15 @@ struct FileExplorerView: View {
 
     private func currentPathDisplay() -> String {
         bluetoothViewModel.currentPath.joined(separator: "/")
+    }
+}
+
+extension BinaryInteger {
+    func fileSize() -> String {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useKB, .useMB, .useGB] // Adjust based on your needs
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: Int64(self))
     }
 }
 
