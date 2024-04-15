@@ -206,9 +206,20 @@ extension BluetoothViewModel: CBPeripheralDelegate {
             DispatchQueue.main.async {
                 if let directoryEntry = self.parseDirectoryEntry(from: data) {
                     self.directoryEntries.append(directoryEntry)
+                    // Sort after adding new entry
+                    self.sortDirectoryEntries()
                 }
                 self.isAwaitingResponse = false // Unlock after processing
             }
+        }
+    }
+
+    func sortDirectoryEntries() {
+        directoryEntries.sort {
+            if $0.isFolder != $1.isFolder {
+                return $0.isFolder && !$1.isFolder
+            }
+            return $0.name.lowercased() < $1.name.lowercased()
         }
     }
 
@@ -327,7 +338,7 @@ struct FileExplorerView: View {
                         }
                     }) {
                         HStack {
-                            Image(systemName: entry.isFolder ? "folder.fill" : "doc.plain")
+                            Image(systemName: entry.isFolder ? "folder.fill" : "doc")
                             VStack(alignment: .leading) {
                                 Text(entry.name)
                                     .font(.headline)
