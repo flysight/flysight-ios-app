@@ -141,7 +141,8 @@ class BluetoothViewModel: NSObject, ObservableObject {
         isAwaitingResponse = true
 
         if let peripheral = connectedPeripheral?.peripheral, let rx = rxCharacteristic {
-            let directory = ([""] + currentPath).joined(separator: "/")
+            let directory = "/" + (currentPath).joined(separator: "/")
+            print("  Getting directory \(directory)")
             let directoryCommand = Data([0x05]) + directory.data(using: .utf8)!
             peripheral.writeValue(directoryCommand, for: rx, type: .withoutResponse)
         }
