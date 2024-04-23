@@ -194,6 +194,11 @@ extension BluetoothViewModel: CBCentralManagerDelegate {
 
         // Optionally start discovering services or characteristics here
         peripheral.discoverServices(nil)  // Passing nil will discover all services
+
+        // Update the isPairingRequested flag to false since the device is now connected
+        if let index = peripheralInfos.firstIndex(where: { $0.peripheral.identifier == peripheral.identifier }) {
+            peripheralInfos[index].isPairingRequested = false
+        }
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
@@ -313,15 +318,37 @@ struct ContentView: View {
 struct ConnectView: View {
     @ObservedObject var bluetoothViewModel: BluetoothViewModel
 
+    func rssiBars(for rssi: Int) -> String {
+        switch rssi {
+            case -50...0:
+                return "wifi"  // Strongest signal
+            case -70...(-51):
+                return "wifi"  // High signal
+            case -85...(-71):
+                return "wifi"  // Moderate signal
+            case -100...(-86):
+                return "wifi"  // Low signal
+            case -120...(-101):
+                return "wifi"  // No signal
+            default:
+                return "exclamationmark.circle"  // Use as an indicator of an invalid RSSI value
+        }
+    }
+
     var body: some View {
         List(bluetoothViewModel.peripheralInfos) { peripheralInfo in
             HStack {
+                // Display a green light bulb icon if pairing is requested
+                if peripheralInfo.isPairingRequested {
+                    Image(systemName: "lightbulb.fill")
+                        .foregroundColor(.green)
+                }
+
+                Image(systemName: rssiBars(for: peripheralInfo.rssi))
+                     .foregroundColor(.gray)  // Adjust color based on your UI theme
+
                 VStack(alignment: .leading) {
                     Text(peripheralInfo.name)
-                    Text("RSSI: \(peripheralInfo.rssi)").font(.caption)
-                    if peripheralInfo.isPairingRequested {
-                        Text("Pairing Requested").foregroundColor(.green)  // Highlight in green
-                    }
                 }
                 Spacer()
                 if bluetoothViewModel.connectedPeripheral?.id == peripheralInfo.id {
