@@ -19,6 +19,7 @@ struct PeripheralInfo: Identifiable {
     var id: UUID {
         peripheral.identifier
     }
+    var isPairingRequested: Bool = false
 }
 
 struct DirectoryEntry: Identifiable {
@@ -158,13 +159,29 @@ extension BluetoothViewModel: CBCentralManagerDelegate {
 
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String : Any], rssi RSSI: NSNumber) {
         DispatchQueue.main.async {
-            if let index = self.peripheralInfos.firstIndex(where: { $0.peripheral.identifier == peripheral.identifier }) {
-                // Update existing peripheral info with new RSSI
-                self.peripheralInfos[index].rssi = RSSI.intValue
-            } else {
-                // Add new peripheral info
-                let newPeripheralInfo = PeripheralInfo(peripheral: peripheral, rssi: RSSI.intValue)
-                self.peripheralInfos.append(newPeripheralInfo)
+            // Extract the manufacturer data from the advertisement data
+            if let manufacturerData = advertisementData[CBAdvertisementDataManufacturerDataKey] as? Data {
+                // Ensure the manufacturer data contains at least 4 bytes (2 bytes for manufacturer ID, 1 byte version, 1 byte flag)
+                if manufacturerData.count >= 4 {
+                    // Convert the first two bytes to a UInt16 manufacturer ID
+                    let manufacturerId = (UInt16(manufacturerData[1]) << 8) | UInt16(manufacturerData[0])  // Assuming little endian byte order
+
+                    // Check if the manufacturer ID matches Bionic Avionics Inc.
+                    if manufacturerId == 0x09DB {
+                        let flags = manufacturerData[3]    // Fourth byte is flags
+                        let isPairingRequested = flags == 0x01
+
+                        // Check if this peripheral is already in the list
+                        if let index = self.peripheralInfos.firstIndex(where: { $0.peripheral.identifier == peripheral.identifier }) {
+                            // Update existing peripheral info with new RSSI and pairing status
+                            self.peripheralInfos[index].rssi = RSSI.intValue
+                            self.peripheralInfos[index].isPairingRequested = isPairingRequested
+                        } else {
+                            // Add new peripheral info
+                            self.peripheralInfos.append(PeripheralInfo(peripheral: peripheral, rssi: RSSI.intValue, isPairingRequested: isPairingRequested))
+                        }
+                    }
+                }
             }
         }
     }
@@ -302,6 +319,9 @@ struct ConnectView: View {
                 VStack(alignment: .leading) {
                     Text(peripheralInfo.name)
                     Text("RSSI: \(peripheralInfo.rssi)").font(.caption)
+                    if peripheralInfo.isPairingRequested {
+                        Text("Pairing Requested").foregroundColor(.green)  // Highlight in green
+                    }
                 }
                 Spacer()
                 if bluetoothViewModel.connectedPeripheral?.id == peripheralInfo.id {
