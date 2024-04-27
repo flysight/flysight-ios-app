@@ -13,9 +13,7 @@ import Foundation
 struct PeripheralInfo: Identifiable {
     let peripheral: CBPeripheral
     var rssi: Int
-    var name: String {
-        peripheral.name ?? "Unnamed Device"
-    }
+    var name: String
     var id: UUID {
         peripheral.identifier
     }
@@ -171,14 +169,23 @@ extension BluetoothViewModel: CBCentralManagerDelegate {
                         let flags = manufacturerData[3]    // Fourth byte is flags
                         let isPairingRequested = flags == 0x01
 
+                        // Use the latest advertised local name, if available
+                        let advertisedName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
+
                         // Check if this peripheral is already in the list
                         if let index = self.peripheralInfos.firstIndex(where: { $0.peripheral.identifier == peripheral.identifier }) {
-                            // Update existing peripheral info with new RSSI and pairing status
+                            // Update existing peripheral info with new RSSI, name, and pairing status
                             self.peripheralInfos[index].rssi = RSSI.intValue
+                            self.peripheralInfos[index].name = advertisedName ?? self.peripheralInfos[index].name
                             self.peripheralInfos[index].isPairingRequested = isPairingRequested
                         } else {
-                            // Add new peripheral info
-                            self.peripheralInfos.append(PeripheralInfo(peripheral: peripheral, rssi: RSSI.intValue, isPairingRequested: isPairingRequested))
+                            // Add new peripheral info with the latest name
+                            self.peripheralInfos.append(PeripheralInfo(
+                                peripheral: peripheral,
+                                rssi: RSSI.intValue,
+                                name: advertisedName ?? peripheral.name ?? "Unnamed Device",
+                                isPairingRequested: isPairingRequested
+                            ))
                         }
                     }
                 }
