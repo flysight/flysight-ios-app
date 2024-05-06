@@ -283,6 +283,9 @@ extension BluetoothViewModel: CBPeripheralDelegate {
                     peripheral.setNotifyValue(true, for: characteristic)
                 } else if characteristic.uuid == CRS_RX_UUID {
                     rxCharacteristic = characteristic
+
+                    // Attempt to read from the characteristic to potentially trigger pairing
+                    peripheral.readValue(for: characteristic)
                 }
             }
             
