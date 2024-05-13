@@ -14,10 +14,10 @@ struct PeripheralInfo: Identifiable {
     let peripheral: CBPeripheral
     var rssi: Int
     var name: String
+    var isConnected: Bool = false
     var id: UUID {
         peripheral.identifier
     }
-    var isPairingRequested: Bool = false
 }
 
 struct DirectoryEntry: Identifiable {
@@ -62,6 +62,31 @@ class BluetoothViewModel: NSObject, ObservableObject {
 
     @Published var isAwaitingResponse = false
 
+    private var timers: [UUID: Timer] = [:]
+
+    private func startDisappearanceTimer(for peripheralInfo: PeripheralInfo) {
+        // Invalidate old timer if it exists
+        timers[peripheralInfo.id]?.invalidate()
+        // Start a new timer
+        timers[peripheralInfo.id] = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
+            if !peripheralInfo.isConnected {
+                self?.removePeripheral(peripheralInfo)
+            }
+        }
+    }
+
+    private func resetTimer(for peripheralInfo: PeripheralInfo) {
+        startDisappearanceTimer(for: peripheralInfo)  // Resetting the timer by starting it anew
+    }
+
+    private func removePeripheral(_ peripheralInfo: PeripheralInfo) {
+        DispatchQueue.main.async {
+            self.peripheralInfos.removeAll { $0.id == peripheralInfo.id }
+            self.timers[peripheralInfo.id]?.invalidate()
+            self.timers.removeValue(forKey: peripheralInfo.id)
+        }
+    }
+
     override init() {
         super.init()
         self.centralManager = CBCentralManager(delegate: self, queue: .main)
@@ -72,15 +97,24 @@ class BluetoothViewModel: NSObject, ObservableObject {
             self.peripheralInfos.sort { $0.rssi > $1.rssi }
         }
     }
-    
+
     func connect(to peripheral: CBPeripheral) {
         centralManager?.connect(peripheral, options: nil)
+        if let index = peripheralInfos.firstIndex(where: { $0.peripheral.identifier == peripheral.identifier }) {
+            peripheralInfos[index].isConnected = true
+            timers[peripheral.identifier]?.invalidate() // Stop the timer when connected
+        }
     }
-    
+
     func disconnect(from peripheral: CBPeripheral) {
         centralManager?.cancelPeripheralConnection(peripheral)
+        if let index = peripheralInfos.firstIndex(where: { $0.peripheral.identifier == peripheral.identifier }) {
+            peripheralInfos.remove(at: index)  // Remove immediately upon disconnect
+            timers[peripheral.identifier]?.invalidate()
+            timers.removeValue(forKey: peripheral.identifier)
+        }
     }
-    
+
     func parseDirectoryEntry(from data: Data) -> DirectoryEntry? {
         guard data.count == 24 else { return nil } // Ensure data length is as expected
 
@@ -160,32 +194,23 @@ extension BluetoothViewModel: CBCentralManagerDelegate {
             // Extract the manufacturer data from the advertisement data
             if let manufacturerData = advertisementData[CBAdvertisementDataManufacturerDataKey] as? Data {
                 // Ensure the manufacturer data contains at least 4 bytes (2 bytes for manufacturer ID, 1 byte version, 1 byte flag)
-                if manufacturerData.count >= 4 {
+                if manufacturerData.count >= 3 {
                     // Convert the first two bytes to a UInt16 manufacturer ID
                     let manufacturerId = (UInt16(manufacturerData[1]) << 8) | UInt16(manufacturerData[0])  // Assuming little endian byte order
 
                     // Check if the manufacturer ID matches Bionic Avionics Inc.
                     if manufacturerId == 0x09DB {
-                        let flags = manufacturerData[3]    // Fourth byte is flags
-                        let isPairingRequested = flags == 0x01
-
-                        // Use the latest advertised local name, if available
-                        let advertisedName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
-
                         // Check if this peripheral is already in the list
                         if let index = self.peripheralInfos.firstIndex(where: { $0.peripheral.identifier == peripheral.identifier }) {
                             // Update existing peripheral info with new RSSI, name, and pairing status
                             self.peripheralInfos[index].rssi = RSSI.intValue
-                            self.peripheralInfos[index].name = advertisedName ?? self.peripheralInfos[index].name
-                            self.peripheralInfos[index].isPairingRequested = isPairingRequested
+                            // Reset the disappearance timer
+                            self.resetTimer(for: self.peripheralInfos[index])
                         } else {
-                            // Add new peripheral info with the latest name
-                            self.peripheralInfos.append(PeripheralInfo(
-                                peripheral: peripheral,
-                                rssi: RSSI.intValue,
-                                name: advertisedName ?? peripheral.name ?? "Unnamed Device",
-                                isPairingRequested: isPairingRequested
-                            ))
+                            let newPeripheralInfo = PeripheralInfo(peripheral: peripheral, rssi: RSSI.intValue, name: peripheral.name ?? "Unnamed Device")
+                            self.peripheralInfos.append(newPeripheralInfo)
+                            // Start a new timer for the new peripheral
+                            self.startDisappearanceTimer(for: newPeripheralInfo)
                         }
                     }
                 }
@@ -201,11 +226,6 @@ extension BluetoothViewModel: CBCentralManagerDelegate {
 
         // Optionally start discovering services or characteristics here
         peripheral.discoverServices(nil)  // Passing nil will discover all services
-
-        // Update the isPairingRequested flag to false since the device is now connected
-        if let index = peripheralInfos.firstIndex(where: { $0.peripheral.identifier == peripheral.identifier }) {
-            peripheralInfos[index].isPairingRequested = false
-        }
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
@@ -331,12 +351,6 @@ struct ConnectView: View {
     var body: some View {
         List(bluetoothViewModel.peripheralInfos) { peripheralInfo in
             HStack {
-                // Display a green light bulb icon if pairing is requested
-                if peripheralInfo.isPairingRequested {
-                    Image(systemName: "lightbulb.fill")
-                        .foregroundColor(.green)
-                }
-
                 VStack(alignment: .leading) {
                     Text(peripheralInfo.name)
                 }
