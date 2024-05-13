@@ -103,6 +103,7 @@ class BluetoothViewModel: NSObject, ObservableObject {
         if let index = peripheralInfos.firstIndex(where: { $0.peripheral.identifier == peripheral.identifier }) {
             peripheralInfos[index].isConnected = true
             timers[peripheral.identifier]?.invalidate() // Stop the timer when connected
+            addBondedDevice(peripheral)  // Mark as bonded
         }
     }
 
@@ -191,28 +192,24 @@ extension BluetoothViewModel: CBCentralManagerDelegate {
 
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String : Any], rssi RSSI: NSNumber) {
         DispatchQueue.main.async {
-            // Extract the manufacturer data from the advertisement data
-            if let manufacturerData = advertisementData[CBAdvertisementDataManufacturerDataKey] as? Data {
-                // Ensure the manufacturer data contains at least 4 bytes (2 bytes for manufacturer ID, 1 byte version, 1 byte flag)
-                if manufacturerData.count >= 3 {
-                    // Convert the first two bytes to a UInt16 manufacturer ID
-                    let manufacturerId = (UInt16(manufacturerData[1]) << 8) | UInt16(manufacturerData[0])  // Assuming little endian byte order
+            let isBonded = self.bondedDeviceIDs.contains(peripheral.identifier)
+            var shouldAdd = isBonded
 
-                    // Check if the manufacturer ID matches Bionic Avionics Inc.
-                    if manufacturerId == 0x09DB {
-                        // Check if this peripheral is already in the list
-                        if let index = self.peripheralInfos.firstIndex(where: { $0.peripheral.identifier == peripheral.identifier }) {
-                            // Update existing peripheral info with new RSSI, name, and pairing status
-                            self.peripheralInfos[index].rssi = RSSI.intValue
-                            // Reset the disappearance timer
-                            self.resetTimer(for: self.peripheralInfos[index])
-                        } else {
-                            let newPeripheralInfo = PeripheralInfo(peripheral: peripheral, rssi: RSSI.intValue, name: peripheral.name ?? "Unnamed Device")
-                            self.peripheralInfos.append(newPeripheralInfo)
-                            // Start a new timer for the new peripheral
-                            self.startDisappearanceTimer(for: newPeripheralInfo)
-                        }
-                    }
+            if let manufacturerData = advertisementData[CBAdvertisementDataManufacturerDataKey] as? Data, manufacturerData.count >= 3 {
+                let manufacturerId = (UInt16(manufacturerData[1]) << 8) | UInt16(manufacturerData[0])
+                if manufacturerId == 0x09DB {  // Bionic Avionics Inc.
+                    shouldAdd = true
+                }
+            }
+
+            if shouldAdd {
+                if let index = self.peripheralInfos.firstIndex(where: { $0.peripheral.identifier == peripheral.identifier }) {
+                    self.peripheralInfos[index].rssi = RSSI.intValue
+                    self.resetTimer(for: self.peripheralInfos[index])
+                } else {
+                    let newPeripheralInfo = PeripheralInfo(peripheral: peripheral, rssi: RSSI.intValue, name: peripheral.name ?? "Unnamed Device", isConnected: false)
+                    self.peripheralInfos.append(newPeripheralInfo)
+                    self.startDisappearanceTimer(for: newPeripheralInfo)
                 }
             }
         }
@@ -314,6 +311,31 @@ extension BluetoothViewModel: CBPeripheralDelegate {
                 loadDirectoryEntries()
             }
         }
+    }
+}
+
+extension BluetoothViewModel {
+    var bondedDeviceIDsKey: String { "bondedDeviceIDs" }
+
+    var bondedDeviceIDs: Set<UUID> {
+        get {
+            Set((UserDefaults.standard.array(forKey: bondedDeviceIDsKey) as? [String])?.compactMap(UUID.init) ?? [])
+        }
+        set {
+            UserDefaults.standard.set(Array(newValue.map { $0.uuidString }), forKey: bondedDeviceIDsKey)
+        }
+    }
+
+    func addBondedDevice(_ peripheral: CBPeripheral) {
+        var currentBonded = bondedDeviceIDs
+        currentBonded.insert(peripheral.identifier)
+        bondedDeviceIDs = currentBonded
+    }
+
+    func removeBondedDevice(_ peripheral: CBPeripheral) {
+        var currentBonded = bondedDeviceIDs
+        currentBonded.remove(peripheral.identifier)
+        bondedDeviceIDs = currentBonded
     }
 }
 
