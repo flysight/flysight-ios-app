@@ -65,18 +65,27 @@ class BluetoothViewModel: NSObject, ObservableObject {
     private var timers: [UUID: Timer] = [:]
 
     private func startDisappearanceTimer(for peripheralInfo: PeripheralInfo) {
-        // Invalidate old timer if it exists
-        timers[peripheralInfo.id]?.invalidate()
-        // Start a new timer
-        timers[peripheralInfo.id] = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
-            if !peripheralInfo.isConnected {
-                self?.removePeripheral(peripheralInfo)
+        // Check if the device is bonded before starting the timer
+        if !bondedDeviceIDs.contains(peripheralInfo.id) {
+            // Invalidate old timer if it exists
+            timers[peripheralInfo.id]?.invalidate()
+            // Start a new timer
+            timers[peripheralInfo.id] = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
+                if !peripheralInfo.isConnected {
+                    self?.removePeripheral(peripheralInfo)
+                }
             }
+        } else {
+            // Optionally log or handle the fact that the timer is not set for a bonded device
         }
     }
 
     private func resetTimer(for peripheralInfo: PeripheralInfo) {
-        startDisappearanceTimer(for: peripheralInfo)  // Resetting the timer by starting it anew
+        if !bondedDeviceIDs.contains(peripheralInfo.id) {
+            startDisappearanceTimer(for: peripheralInfo)  // Resetting the timer by starting it anew
+        } else {
+            // Optionally log or handle the fact that the timer is not reset for a bonded device
+        }
     }
 
     private func removePeripheral(_ peripheralInfo: PeripheralInfo) {
@@ -110,9 +119,18 @@ class BluetoothViewModel: NSObject, ObservableObject {
     func disconnect(from peripheral: CBPeripheral) {
         centralManager?.cancelPeripheralConnection(peripheral)
         if let index = peripheralInfos.firstIndex(where: { $0.peripheral.identifier == peripheral.identifier }) {
-            peripheralInfos.remove(at: index)  // Remove immediately upon disconnect
-            timers[peripheral.identifier]?.invalidate()
-            timers.removeValue(forKey: peripheral.identifier)
+            // Check if the peripheral is bonded
+            if !bondedDeviceIDs.contains(peripheral.identifier) {
+                // Remove the peripheral if it's not bonded
+                peripheralInfos.remove(at: index)
+                timers[peripheral.identifier]?.invalidate()
+                timers.removeValue(forKey: peripheral.identifier)
+            } else {
+                // Update the connection status without removing from the list
+                peripheralInfos[index].isConnected = false
+                // Optionally restart the timer if you want to eventually remove it if it does not advertise again
+                startDisappearanceTimer(for: peripheralInfos[index])
+            }
         }
     }
 
@@ -197,7 +215,7 @@ extension BluetoothViewModel: CBCentralManagerDelegate {
 
             if let manufacturerData = advertisementData[CBAdvertisementDataManufacturerDataKey] as? Data, manufacturerData.count >= 3 {
                 let manufacturerId = (UInt16(manufacturerData[1]) << 8) | UInt16(manufacturerData[0])
-                if manufacturerId == 0x09DB {  // Bionic Avionics Inc.
+                if manufacturerId == 0x09DB {
                     shouldAdd = true
                 }
             }
@@ -205,11 +223,15 @@ extension BluetoothViewModel: CBCentralManagerDelegate {
             if shouldAdd {
                 if let index = self.peripheralInfos.firstIndex(where: { $0.peripheral.identifier == peripheral.identifier }) {
                     self.peripheralInfos[index].rssi = RSSI.intValue
-                    self.resetTimer(for: self.peripheralInfos[index])
+                    if !isBonded {  // Only reset timer for non-bonded devices
+                        self.resetTimer(for: self.peripheralInfos[index])
+                    }
                 } else {
                     let newPeripheralInfo = PeripheralInfo(peripheral: peripheral, rssi: RSSI.intValue, name: peripheral.name ?? "Unnamed Device", isConnected: false)
                     self.peripheralInfos.append(newPeripheralInfo)
-                    self.startDisappearanceTimer(for: newPeripheralInfo)
+                    if !isBonded {
+                        self.startDisappearanceTimer(for: newPeripheralInfo)
+                    }
                 }
             }
         }
