@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import FlySightCore
 
 @main
 struct FlySightApp: App {

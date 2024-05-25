@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -13,6 +13,7 @@
 		4CE4E9A42BBF010F002E028E /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4CE4E9A32BBF010F002E028E /* Preview Assets.xcassets */; };
 		4CE4E9A62BBF010F002E028E /* Persistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE4E9A52BBF010F002E028E /* Persistence.swift */; };
 		4CE4E9A92BBF010F002E028E /* FlySight.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 4CE4E9A72BBF010F002E028E /* FlySight.xcdatamodeld */; };
+		4CF56E3E2C028BA8002A1603 /* FlySightCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4CF56E3D2C028BA8002A1603 /* FlySightCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -31,6 +32,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4CF56E3E2C028BA8002A1603 /* FlySightCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -91,6 +93,9 @@
 			dependencies = (
 			);
 			name = FlySight;
+			packageProductDependencies = (
+				4CF56E3D2C028BA8002A1603 /* FlySightCore */,
+			);
 			productName = FlySight;
 			productReference = 4CE4E9992BBF010E002E028E /* FlySight.app */;
 			productType = "com.apple.product-type.application";
@@ -119,6 +124,9 @@
 				Base,
 			);
 			mainGroup = 4CE4E9902BBF010E002E028E;
+			packageReferences = (
+				4CF56E3C2C028BA8002A1603 /* XCLocalSwiftPackageReference "../FlySightCore" */,
+			);
 			productRefGroup = 4CE4E99A2BBF010E002E028E /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -362,6 +370,20 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		4CF56E3C2C028BA8002A1603 /* XCLocalSwiftPackageReference "../FlySightCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../FlySightCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4CF56E3D2C028BA8002A1603 /* FlySightCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FlySightCore;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCVersionGroup section */
 		4CE4E9A72BBF010F002E028E /* FlySight.xcdatamodeld */ = {
