@@ -9,26 +9,26 @@ import SwiftUI
 import FlySightCore
 
 struct ContentView: View {
-    @ObservedObject private var bluetoothViewModel = BluetoothViewModel()
+    @ObservedObject private var bluetoothManager = FlySightCore.BluetoothManager()
 
     var body: some View {
         TabView {
-            ConnectView(bluetoothViewModel: bluetoothViewModel)
+            ConnectView(bluetoothManager: bluetoothManager)
                 .tabItem {
                     Label("Connect", systemImage: "dot.radiowaves.left.and.right")
                 }
 
-            FileExplorerView(bluetoothViewModel: bluetoothViewModel)
+            FileExplorerView(bluetoothManager: bluetoothManager)
                 .tabItem {
                     Label("Files", systemImage: "folder")
                 }
 
-            LiveDataView(bluetoothViewModel: bluetoothViewModel)
+            LiveDataView(bluetoothManager: bluetoothManager)
                 .tabItem {
                     Label("Live Data", systemImage: "waveform.path.ecg")
                 }
 
-            StartingPistolView(bluetoothViewModel: bluetoothViewModel)
+            StartingPistolView(bluetoothManager: bluetoothManager)
                 .tabItem {
                     Label("Start Pistol", systemImage: "timer")
                 }
@@ -37,25 +37,25 @@ struct ContentView: View {
 }
 
 struct ConnectView: View {
-    @ObservedObject var bluetoothViewModel: BluetoothViewModel
+    @ObservedObject var bluetoothManager: FlySightCore.BluetoothManager
 
     var body: some View {
-        List(bluetoothViewModel.peripheralInfos) { peripheralInfo in
+        List(bluetoothManager.peripheralInfos) { peripheralInfo in
             HStack {
                 VStack(alignment: .leading) {
                     Text(peripheralInfo.name)
                 }
                 Spacer()
-                if bluetoothViewModel.connectedPeripheral?.id == peripheralInfo.id {
+                if bluetoothManager.connectedPeripheral?.id == peripheralInfo.id {
                     Button("Disconnect") {
-                        bluetoothViewModel.disconnect(from: peripheralInfo.peripheral)
-                        bluetoothViewModel.connectedPeripheral = nil
+                        bluetoothManager.disconnect(from: peripheralInfo.peripheral)
+                        bluetoothManager.connectedPeripheral = nil
                     }
                     .foregroundColor(.red)
                 } else {
                     Button("Connect") {
-                        bluetoothViewModel.connect(to: peripheralInfo.peripheral)
-                        bluetoothViewModel.connectedPeripheral = peripheralInfo
+                        bluetoothManager.connect(to: peripheralInfo.peripheral)
+                        bluetoothManager.connectedPeripheral = peripheralInfo
                     }
                     .foregroundColor(.blue)
                 }
@@ -64,7 +64,7 @@ struct ConnectView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Sort") {
-                    bluetoothViewModel.sortPeripheralsByRSSI()
+                    bluetoothManager.sortPeripheralsByRSSI()
                 }
             }
         }
@@ -72,15 +72,15 @@ struct ConnectView: View {
 }
 
 struct FileExplorerView: View {
-    @ObservedObject var bluetoothViewModel: BluetoothViewModel
+    @ObservedObject var bluetoothManager: FlySightCore.BluetoothManager
 
     var body: some View {
         NavigationView {
             List {
-                ForEach(bluetoothViewModel.directoryEntries.filter { !$0.isHidden }) { entry in
+                ForEach(bluetoothManager.directoryEntries.filter { !$0.isHidden }) { entry in
                     Button(action: {
                         if entry.isFolder {
-                            bluetoothViewModel.changeDirectory(to: entry.name)
+                            bluetoothManager.changeDirectory(to: entry.name)
                         }
                     }) {
                         HStack {
@@ -118,23 +118,23 @@ struct FileExplorerView: View {
 
     private var backButton: some View {
         Button(action: {
-            bluetoothViewModel.goUpOneDirectoryLevel()
+            bluetoothManager.goUpOneDirectoryLevel()
         }) {
             HStack {
                 Image(systemName: "arrow.backward")
                 Text("Back")
             }
         }
-        .disabled(bluetoothViewModel.currentPath.count == 0)
+        .disabled(bluetoothManager.currentPath.count == 0)
     }
 
     private func currentPathDisplay() -> String {
-        bluetoothViewModel.currentPath.joined(separator: "/")
+        bluetoothManager.currentPath.joined(separator: "/")
     }
 }
 
 struct LiveDataView: View {
-    @ObservedObject var bluetoothViewModel: BluetoothViewModel
+    @ObservedObject var bluetoothManager: FlySightCore.BluetoothManager
 
     var body: some View {
         Text("Live Data will be displayed here.")
@@ -143,7 +143,7 @@ struct LiveDataView: View {
 }
 
 struct StartingPistolView: View {
-    @ObservedObject var bluetoothViewModel: BluetoothViewModel
+    @ObservedObject var bluetoothManager: FlySightCore.BluetoothManager
 
     var body: some View {
         Text("Starting Pistol feature will be controlled here.")
