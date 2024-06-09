@@ -142,16 +142,78 @@ struct LiveDataView: View {
     }
 }
 
+class StartingPistolViewModel: ObservableObject {
+    @Published public var recentStartDates: [Date] = []
+    private let recentStartDatesKey = "recentStartDates"
+
+    init() {
+        loadRecentStartDates()
+    }
+
+    private func saveRecentStartDates() {
+        let datesData = recentStartDates.map { $0.timeIntervalSince1970 }
+        UserDefaults.standard.set(datesData, forKey: recentStartDatesKey)
+    }
+
+    private func loadRecentStartDates() {
+        if let datesData = UserDefaults.standard.array(forKey: recentStartDatesKey) as? [TimeInterval] {
+            recentStartDates = datesData.map { Date(timeIntervalSince1970: $0) }
+        }
+    }
+
+    func clearRecentStartDates() {
+        recentStartDates.removeAll()
+        saveRecentStartDates()
+    }
+
+    func addNewStartDate(_ date: Date) {
+        recentStartDates.append(date)
+        saveRecentStartDates()
+    }
+}
+
 struct StartingPistolView: View {
     @ObservedObject var bluetoothManager: FlySightCore.BluetoothManager
+    @StateObject private var viewModel = StartingPistolViewModel()
+    @State private var showingClearAlert = false
+    @State private var copiedRow: Date?
 
     var body: some View {
         VStack {
-            if let startDate = bluetoothManager.startResultDate {
-                Text("Race Started At:")
-                Text(dateToString(startDate))
+            Text("Recent Start Times")
+                .font(.headline)
+                .padding(.top)
+
+            if viewModel.recentStartDates.isEmpty {
+                Text("No start times recorded yet.")
+                    .padding()
             } else {
-                Text("No start time recorded yet.")
+                List {
+                    ForEach(viewModel.recentStartDates.sorted(by: >), id: \.self) { date in
+                        HStack {
+                            Text(dateToString(date))
+                                .font(.system(.body, design: .monospaced))
+                                .padding(.vertical, 2)
+                            Spacer()
+                            Button(action: {
+                                UIPasteboard.general.string = dateToString(date)
+                                copiedRow = date
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                                    copiedRow = nil
+                                }
+                            }) {
+                                Image(systemName: "doc.on.doc")
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                        .background(copiedRow == date ? Color.green.opacity(0.3) : Color.clear)
+                        .animation(.default, value: copiedRow)
+                    }
+                    .listRowBackground(Color.white)
+                }
+                .listStyle(PlainListStyle())
+                .background(Color(UIColor.systemGray6))
             }
 
             Spacer()
@@ -167,7 +229,7 @@ struct StartingPistolView: View {
                         .cornerRadius(10)
                 }
                 .disabled(bluetoothManager.state != .idle)
-                .padding()
+                .padding(.horizontal)
 
                 Button(action: {
                     bluetoothManager.sendCancelCommand()
@@ -179,10 +241,37 @@ struct StartingPistolView: View {
                         .cornerRadius(10)
                 }
                 .disabled(bluetoothManager.state != .counting)
-                .padding()
+                .padding(.horizontal)
+
+                Button(action: {
+                    showingClearAlert = true
+                }) {
+                    Text("Clear")
+                        .padding()
+                        .background(Color.black)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                }
+                .padding(.horizontal)
+                .alert(isPresented: $showingClearAlert) {
+                    Alert(
+                        title: Text("Clear Recent Start Times"),
+                        message: Text("Are you sure you want to clear all recent start times?"),
+                        primaryButton: .destructive(Text("Clear")) {
+                            viewModel.clearRecentStartDates()
+                        },
+                        secondaryButton: .cancel()
+                    )
+                }
             }
+            .padding()
         }
         .navigationTitle("Starting Pistol")
+        .onReceive(bluetoothManager.$startResultDate) { date in
+            if let date = date {
+                viewModel.addNewStartDate(date)
+            }
+        }
     }
 
     private func dateToString(_ date: Date) -> String {
