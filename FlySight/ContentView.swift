@@ -145,11 +145,9 @@ struct LiveDataView: View {
 struct StartingPistolView: View {
     @ObservedObject var bluetoothManager: FlySightCore.BluetoothManager
 
-    @State private var startDate: Date?
-
     var body: some View {
         VStack {
-            if let startDate = startDate {
+            if let startDate = bluetoothManager.startResultDate {
                 Text("Race Started At:")
                 Text(dateToString(startDate))
             } else {
@@ -158,19 +156,31 @@ struct StartingPistolView: View {
 
             Spacer()
 
-            Button(action: {
-                bluetoothManager.sendStartCommand()
-            }) {
-                Text("Start Race")
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
+            HStack {
+                Button(action: {
+                    bluetoothManager.sendStartCommand()
+                }) {
+                    Text("Start")
+                        .padding()
+                        .background(bluetoothManager.state == .idle ? Color.blue : Color.gray)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                }
+                .disabled(bluetoothManager.state != .idle)
+                .padding()
+
+                Button(action: {
+                    bluetoothManager.sendCancelCommand()
+                }) {
+                    Text("Cancel")
+                        .padding()
+                        .background(bluetoothManager.state == .counting ? Color.red : Color.gray)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                }
+                .disabled(bluetoothManager.state != .counting)
+                .padding()
             }
-            .padding()
-        }
-        .onReceive(bluetoothManager.$startResultDate) { date in
-            self.startDate = date
         }
         .navigationTitle("Starting Pistol")
     }
