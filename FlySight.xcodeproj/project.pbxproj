@@ -7,13 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4C8D140E2C16270300C5B5A2 /* FlySightCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4C8D140D2C16270300C5B5A2 /* FlySightCore */; };
 		4CE4E99D2BBF010E002E028E /* FlySightApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE4E99C2BBF010E002E028E /* FlySightApp.swift */; };
 		4CE4E99F2BBF010E002E028E /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE4E99E2BBF010E002E028E /* ContentView.swift */; };
 		4CE4E9A12BBF010F002E028E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4CE4E9A02BBF010F002E028E /* Assets.xcassets */; };
 		4CE4E9A42BBF010F002E028E /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4CE4E9A32BBF010F002E028E /* Preview Assets.xcassets */; };
 		4CE4E9A62BBF010F002E028E /* Persistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE4E9A52BBF010F002E028E /* Persistence.swift */; };
 		4CE4E9A92BBF010F002E028E /* FlySight.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 4CE4E9A72BBF010F002E028E /* FlySight.xcdatamodeld */; };
-		4CF56E3E2C028BA8002A1603 /* FlySightCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4CF56E3D2C028BA8002A1603 /* FlySightCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,7 +32,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4CF56E3E2C028BA8002A1603 /* FlySightCore in Frameworks */,
+				4C8D140E2C16270300C5B5A2 /* FlySightCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -94,7 +94,7 @@
 			);
 			name = FlySight;
 			packageProductDependencies = (
-				4CF56E3D2C028BA8002A1603 /* FlySightCore */,
+				4C8D140D2C16270300C5B5A2 /* FlySightCore */,
 			);
 			productName = FlySight;
 			productReference = 4CE4E9992BBF010E002E028E /* FlySight.app */;
@@ -379,7 +379,7 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		4CF56E3D2C028BA8002A1603 /* FlySightCore */ = {
+		4C8D140D2C16270300C5B5A2 /* FlySightCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = FlySightCore;
 		};

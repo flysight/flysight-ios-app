@@ -145,9 +145,41 @@ struct LiveDataView: View {
 struct StartingPistolView: View {
     @ObservedObject var bluetoothManager: FlySightCore.BluetoothManager
 
+    @State private var startDate: Date?
+
     var body: some View {
-        Text("Starting Pistol feature will be controlled here.")
-            .navigationTitle("Starting Pistol")
+        VStack {
+            if let startDate = startDate {
+                Text("Race Started At:")
+                Text(dateToString(startDate))
+            } else {
+                Text("No start time recorded yet.")
+            }
+
+            Spacer()
+
+            Button(action: {
+                bluetoothManager.sendStartCommand()
+            }) {
+                Text("Start Race")
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+            }
+            .padding()
+        }
+        .onReceive(bluetoothManager.$startResultDate) { date in
+            self.startDate = date
+        }
+        .navigationTitle("Starting Pistol")
+    }
+
+    private func dateToString(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+        formatter.timeZone = TimeZone(secondsFromGMT: 0) ?? TimeZone(abbreviation: "UTC")! // Set timezone to UTC
+        return formatter.string(from: date)
     }
 }
 
