@@ -74,6 +74,9 @@ struct ConnectView: View {
 struct FileExplorerView: View {
     @ObservedObject var bluetoothManager: FlySightCore.BluetoothManager
 
+    @State private var isDownloading = false
+    @State private var downloadProgress: Float = 0.0
+
     var body: some View {
         NavigationView {
             List {
@@ -81,6 +84,8 @@ struct FileExplorerView: View {
                     Button(action: {
                         if entry.isFolder {
                             bluetoothManager.changeDirectory(to: entry.name)
+                        } else {
+                            downloadFile(entry)
                         }
                     }) {
                         HStack {
@@ -113,6 +118,12 @@ struct FileExplorerView: View {
                         .truncationMode(.head)
                 }
             }
+            .overlay(
+                ProgressView(value: downloadProgress, total: 1.0)
+                    .progressViewStyle(LinearProgressViewStyle())
+                    .padding()
+                    .opacity(isDownloading ? 1.0 : 0.0)
+            )
         }
     }
 
@@ -130,6 +141,45 @@ struct FileExplorerView: View {
 
     private func currentPathDisplay() -> String {
         bluetoothManager.currentPath.joined(separator: "/")
+    }
+
+    private func downloadFile(_ entry: FlySightCore.DirectoryEntry) {
+        isDownloading = true
+        let fullPath = (bluetoothManager.currentPath + [entry.name]).joined(separator: "/")
+        bluetoothManager.downloadFile(named: fullPath) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let data):
+                    // Save the file locally
+                    saveFile(data: data, name: entry.name)
+                case .failure(let error):
+                    print("Failed to download file: \(error.localizedDescription)")
+                }
+                isDownloading = false
+            }
+        }
+    }
+
+    private func saveFile(data: Data, name: String) {
+        // Save the data to the phone
+        let fileManager = FileManager.default
+        if let documentDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first {
+            let fileURL = documentDirectory.appendingPathComponent(name)
+            do {
+                try data.write(to: fileURL)
+                print("File saved to \(fileURL.path)")
+                presentShareSheet(fileURL: fileURL)
+            } catch {
+                print("Failed to save file: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func presentShareSheet(fileURL: URL) {
+        let activityViewController = UIActivityViewController(activityItems: [fileURL], applicationActivities: nil)
+        if let topController = UIApplication.shared.windows.first?.rootViewController {
+            topController.present(activityViewController, animated: true, completion: nil)
+        }
     }
 }
 
