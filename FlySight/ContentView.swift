@@ -75,7 +75,6 @@ struct FileExplorerView: View {
     @ObservedObject var bluetoothManager: FlySightCore.BluetoothManager
 
     @State private var isDownloading = false
-    @State private var downloadProgress: Float = 0.0
 
     var body: some View {
         NavigationView {
@@ -119,10 +118,8 @@ struct FileExplorerView: View {
                 }
             }
             .overlay(
-                ProgressView(value: downloadProgress, total: 1.0)
-                    .progressViewStyle(LinearProgressViewStyle())
+                DownloadProgressView(isShowing: $isDownloading, progress: $bluetoothManager.downloadProgress, cancelAction: cancelDownload)
                     .padding()
-                    .opacity(isDownloading ? 1.0 : 0.0)
             )
         }
     }
@@ -179,6 +176,47 @@ struct FileExplorerView: View {
         let activityViewController = UIActivityViewController(activityItems: [fileURL], applicationActivities: nil)
         if let topController = UIApplication.shared.windows.first?.rootViewController {
             topController.present(activityViewController, animated: true, completion: nil)
+        }
+    }
+
+    private func cancelDownload() {
+        bluetoothManager.cancelDownload()
+        isDownloading = false
+    }
+}
+
+struct DownloadProgressView: View {
+    @Binding var isShowing: Bool
+    @Binding var progress: Float
+    var cancelAction: () -> Void
+
+    var body: some View {
+        if isShowing {
+            VStack {
+                Text("Downloading...")
+                    .font(.headline)
+                    .padding()
+
+                ProgressView(value: progress, total: 1.0)
+                    .progressViewStyle(LinearProgressViewStyle())
+                    .padding()
+
+                Button("Cancel") {
+                    cancelAction()
+                }
+                .padding()
+                .background(Color.red)
+                .foregroundColor(.white)
+                .cornerRadius(10)
+            }
+            .frame(width: 300, height: 200)
+            .background(Color.white)
+            .cornerRadius(20)
+            .shadow(radius: 10)
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(Color.gray, lineWidth: 1)
+            )
         }
     }
 }
