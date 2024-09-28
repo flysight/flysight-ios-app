@@ -75,6 +75,9 @@ struct FileExplorerView: View {
     @ObservedObject var bluetoothManager: FlySightCore.BluetoothManager
 
     @State private var isDownloading = false
+    @State private var isUploading = false
+    @State private var showFileImporter = false
+    @State private var selectedFileURL: URL?
 
     var body: some View {
         NavigationView {
@@ -116,10 +119,40 @@ struct FileExplorerView: View {
                         .lineLimit(1)
                         .truncationMode(.head)
                 }
+                ToolbarItemGroup(placement: .bottomBar) {
+                    Button(action: {
+                        showFileImporter = true
+                    }) {
+                        Text("Upload")
+                    }
+                }
+            }
+            .fileImporter(
+                isPresented: $showFileImporter,
+                allowedContentTypes: [.data],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    if let url = urls.first {
+                        selectedFileURL = url
+                        uploadFile()
+                    }
+                case .failure(let error):
+                    print("Failed to select file: \(error.localizedDescription)")
+                }
             }
             .overlay(
-                DownloadProgressView(isShowing: $isDownloading, progress: $bluetoothManager.downloadProgress, cancelAction: cancelDownload)
-                    .padding()
+                VStack {
+                    if isDownloading {
+                        DownloadProgressView(isShowing: $isDownloading, progress: $bluetoothManager.downloadProgress, cancelAction: cancelDownload)
+                            .padding()
+                    }
+                    if isUploading {
+                        UploadProgressView(isShowing: $isUploading, progress: $bluetoothManager.uploadProgress, cancelAction: cancelUpload)
+                            .padding()
+                    }
+                }
             )
         }
     }
@@ -157,6 +190,44 @@ struct FileExplorerView: View {
         }
     }
 
+    private func uploadFile() {
+        guard let fileURL = selectedFileURL else { return }
+        isUploading = true
+        let destinationPath = "/" + (bluetoothManager.currentPath + [fileURL.lastPathComponent]).joined(separator: "/")
+
+        // Access the security-scoped resource
+        guard fileURL.startAccessingSecurityScopedResource() else {
+            print("Failed to access security-scoped resource")
+            isUploading = false
+            return
+        }
+        defer { fileURL.stopAccessingSecurityScopedResource() }
+
+        // Read data from the file
+        let fileData: Data
+        do {
+            fileData = try Data(contentsOf: fileURL)
+        } catch {
+            print("Failed to read file data: \(error.localizedDescription)")
+            isUploading = false
+            return
+        }
+
+        // Call the uploadFile method with corrected argument labels and proper handling
+        bluetoothManager.uploadFile(fileData: fileData, remotePath: destinationPath) { result in
+            DispatchQueue.main.async {
+                isUploading = false
+                switch result {
+                case .success:
+                    print("File uploaded successfully")
+                    bluetoothManager.loadDirectoryEntries()
+                case .failure(let error):
+                    print("Failed to upload file: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
     private func saveFile(data: Data, name: String) {
         // Save the data to the phone
         let fileManager = FileManager.default
@@ -183,6 +254,10 @@ struct FileExplorerView: View {
         bluetoothManager.cancelDownload()
         isDownloading = false
     }
+
+    private func cancelUpload() {
+        bluetoothManager.cancelUpload()
+    }
 }
 
 struct DownloadProgressView: View {
@@ -194,6 +269,42 @@ struct DownloadProgressView: View {
         if isShowing {
             VStack {
                 Text("Downloading...")
+                    .font(.headline)
+                    .padding()
+
+                ProgressView(value: progress, total: 1.0)
+                    .progressViewStyle(LinearProgressViewStyle())
+                    .padding()
+
+                Button("Cancel") {
+                    cancelAction()
+                }
+                .padding()
+                .background(Color.red)
+                .foregroundColor(.white)
+                .cornerRadius(10)
+            }
+            .frame(width: 300, height: 200)
+            .background(Color.white)
+            .cornerRadius(20)
+            .shadow(radius: 10)
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(Color.gray, lineWidth: 1)
+            )
+        }
+    }
+}
+
+struct UploadProgressView: View {
+    @Binding var isShowing: Bool
+    @Binding var progress: Float
+    var cancelAction: () -> Void
+
+    var body: some View {
+        if isShowing {
+            VStack {
+                Text("Uploading...")
                     .font(.headline)
                     .padding()
 
