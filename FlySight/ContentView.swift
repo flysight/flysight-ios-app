@@ -44,6 +44,12 @@ struct ConnectView: View {
             HStack {
                 VStack(alignment: .leading) {
                     Text(peripheralInfo.name)
+                        .fontWeight(peripheralInfo.isPairingMode ? .bold : .regular)
+                    if peripheralInfo.isPairingMode {
+                        Text("Pairing Mode")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                    }
                 }
                 Spacer()
                 if bluetoothManager.connectedPeripheral?.id == peripheralInfo.id {
