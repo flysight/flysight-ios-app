@@ -44,6 +44,12 @@ struct ConnectView: View {
             HStack {
                 VStack(alignment: .leading) {
                     Text(peripheralInfo.name)
+                        .fontWeight(peripheralInfo.isPairingMode ? .bold : .regular)
+                    if peripheralInfo.isPairingMode {
+                        Text("Pairing Mode")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                    }
                 }
                 Spacer()
                 if bluetoothManager.connectedPeripheral?.id == peripheralInfo.id {
@@ -335,9 +341,155 @@ struct UploadProgressView: View {
 struct LiveDataView: View {
     @ObservedObject var bluetoothManager: FlySightCore.BluetoothManager
 
+    // Local state for toggles, initialized by currentGNSSMask
+    @State private var enableTimeOfWeek: Bool = true
+    // @State private var enableWeekNumber: Bool = false // Not currently supported by firmware PV packet
+    @State private var enablePosition: Bool = true
+    @State private var enableVelocity: Bool = true
+    @State private var enableAccuracy: Bool = false // Default off as per firmware's 0xB0 initial mask
+    @State private var enableNumSV: Bool = false    // Default off
+
     var body: some View {
-        Text("Live Data will be displayed here.")
-            .navigationTitle("Live Data")
+        NavigationView {
+            Form {
+                Section(header: Text("Live Data Fields")) {
+                    if let data = bluetoothManager.liveGNSSData {
+                        Text("Current Mask: \(String(format: "0x%02X", data.mask))")
+                        if data.timeOfWeek != nil { Text("Time of Week: \(data.timeOfWeek!) s") }
+                        // if data.weekNumber != nil { Text("Week Number: \(data.weekNumber!)") }
+                        if data.latitude != nil { Text("Latitude: \(data.formattedLatitude)") }
+                        if data.longitude != nil { Text("Longitude: \(data.formattedLongitude)") }
+                        if data.heightMSL != nil { Text("Height MSL: \(data.formattedHeightMSL)") }
+                        if data.velocityNorth != nil { Text("Velocity N: \(data.formattedVelocityNorth)") }
+                        if data.velocityEast != nil { Text("Velocity E: \(data.formattedVelocityEast)") }
+                        if data.velocityDown != nil { Text("Velocity D: \(data.formattedVelocityDown)") }
+                        if data.horizontalAccuracy != nil { Text("Horizontal Acc.: \(data.formattedHorizontalAccuracy)") }
+                        if data.verticalAccuracy != nil { Text("Vertical Acc.: \(data.formattedVerticalAccuracy)") }
+                        if data.speedAccuracy != nil { Text("Speed Acc.: \(data.formattedSpeedAccuracy)") }
+                        if data.numSV != nil { Text("Num SV: \(data.numSV!)") }
+                    } else {
+                        Text("No live data received yet. Ensure FlySight is connected and sending data.")
+                            .foregroundColor(.gray)
+                    }
+                }
+	
+                Section(header: Text("Configure Data Fields")) {
+                    Toggle("Time of Week", isOn: $enableTimeOfWeek)
+                        .onChange(of: enableTimeOfWeek) { _ in applyMaskConfigurationFromToggles() }
+                    // Toggle("Week Number", isOn: $enableWeekNumber) // Not currently supported
+                    //    .onChange(of: enableWeekNumber) { _ in applyMaskConfigurationFromToggles() }
+                    Toggle("Position (Lat, Lon, Alt)", isOn: $enablePosition)
+                        .onChange(of: enablePosition) { _ in applyMaskConfigurationFromToggles() }
+                    Toggle("Velocity (N, E, D)", isOn: $enableVelocity)
+                        .onChange(of: enableVelocity) { _ in applyMaskConfigurationFromToggles() }
+                    Toggle("Accuracy (H, V, S)", isOn: $enableAccuracy)
+                        .onChange(of: enableAccuracy) { _ in applyMaskConfigurationFromToggles() }
+                    Toggle("Number of Satellites", isOn: $enableNumSV)
+                        .onChange(of: enableNumSV) { _ in applyMaskConfigurationFromToggles() }
+                }
+
+                if bluetoothManager.gnssMaskUpdateStatus == .pending {
+                    HStack {
+                        Spacer()
+                        ProgressView().scaleEffect(0.7) // Smaller progress view
+                        Text("Applying...")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                        Spacer()
+                    }
+                } else if case .failure(let message) = bluetoothManager.gnssMaskUpdateStatus {
+                    HStack {
+                        Spacer()
+                        Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.red)
+                        Text("Failed: \(message)")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        Spacer()
+                    }
+                    .onAppear { // Auto-clear failure message after a delay
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                            // Check again to ensure status hasn't changed to pending/success
+                            if case .failure = bluetoothManager.gnssMaskUpdateStatus {
+                                bluetoothManager.gnssMaskUpdateStatus = .idle
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Live GNSS Data")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        bluetoothManager.fetchGNSSMask()
+                    }) {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                }
+            }
+            .onAppear {
+                // Fetch initial mask when view appears if connected
+                if bluetoothManager.connectedPeripheral != nil {
+                    // Only fetch if not already pending to avoid re-triggering if view re-appears quickly
+                    if bluetoothManager.gnssMaskUpdateStatus != .pending {
+                        bluetoothManager.fetchGNSSMask()
+                    }
+                }
+                // Update toggles from the manager's currentGNSSMask
+                updateToggleStates(from: bluetoothManager.currentGNSSMask)
+            }
+            .onReceive(bluetoothManager.$currentGNSSMask) { newMaskFromManager in
+                updateToggleStates(from: newMaskFromManager)
+            }
+        }
+    }
+
+    private func updateToggleStates(from mask: UInt8) {
+        // This ensures that if a 'set' operation fails and currentGNSSMask is reverted
+        // by a fetch, the toggles will go back to reflecting the actual state.
+        // It also prevents `applyMaskConfigurationFromToggles` from being called if
+        // the local toggle state change itself triggers this update through $currentGNSSMask.
+        // We only update if the local state differs from what the mask implies.
+
+        let newEnableTimeOfWeek = (mask & FlySightCore.GNSSLiveMaskBits.timeOfWeek) != 0
+        if enableTimeOfWeek != newEnableTimeOfWeek { enableTimeOfWeek = newEnableTimeOfWeek }
+
+        // let newEnableWeekNumber = (mask & FlySightCore.GNSSLiveMaskBits.weekNumber) != 0
+        // if enableWeekNumber != newEnableWeekNumber { enableWeekNumber = newEnableWeekNumber }
+
+        let newEnablePosition = (mask & FlySightCore.GNSSLiveMaskBits.position) != 0
+        if enablePosition != newEnablePosition { enablePosition = newEnablePosition }
+
+        let newEnableVelocity = (mask & FlySightCore.GNSSLiveMaskBits.velocity) != 0
+        if enableVelocity != newEnableVelocity { enableVelocity = newEnableVelocity }
+
+        let newEnableAccuracy = (mask & FlySightCore.GNSSLiveMaskBits.accuracy) != 0
+        if enableAccuracy != newEnableAccuracy { enableAccuracy = newEnableAccuracy }
+
+        let newEnableNumSV = (mask & FlySightCore.GNSSLiveMaskBits.numSV) != 0
+        if enableNumSV != newEnableNumSV { enableNumSV = newEnableNumSV }
+    }
+
+    private func applyMaskConfigurationFromToggles() {
+        var newMask: UInt8 = 0
+        if enableTimeOfWeek { newMask |= FlySightCore.GNSSLiveMaskBits.timeOfWeek }
+        // if enableWeekNumber { newMask |= FlySightCore.GNSSLiveMaskBits.weekNumber }
+        if enablePosition { newMask |= FlySightCore.GNSSLiveMaskBits.position }
+        if enableVelocity { newMask |= FlySightCore.GNSSLiveMaskBits.velocity }
+        if enableAccuracy { newMask |= FlySightCore.GNSSLiveMaskBits.accuracy }
+        if enableNumSV { newMask |= FlySightCore.GNSSLiveMaskBits.numSV }
+
+        // Only send update if the new mask generated from toggles is different from
+        // what the BluetoothManager currently believes is the mask,
+        // or if the last operation wasn't successful (e.g. idle or failure),
+        // or if an update is not already pending.
+        if newMask != bluetoothManager.currentGNSSMask || (bluetoothManager.gnssMaskUpdateStatus != .pending && bluetoothManager.gnssMaskUpdateStatus != .idle /* allow re-try on failure implicitly */) {
+            bluetoothManager.updateGNSSMask(newMask: newMask)
+        } else if bluetoothManager.gnssMaskUpdateStatus == .idle && newMask == bluetoothManager.currentGNSSMask {
+            // If everything is idle and toggles match current mask, do nothing.
+            // print("Mask unchanged and system idle, no update sent.")
+        }
     }
 }
 
@@ -459,7 +611,7 @@ struct StartingPistolView: View {
                         primaryButton: .destructive(Text("Clear")) {
                             viewModel.clearRecentStartDates()
                         },
-                        secondaryButton: .cancel()
+                        secondaryButton: .cancel()	
                     )
                 }
             }
@@ -483,4 +635,5 @@ struct StartingPistolView: View {
 
 #Preview {
     ContentView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+        .environmentObject(FlySightCore.BluetoothManager()) // Ensure this is present
 }
