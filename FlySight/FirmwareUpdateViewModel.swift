@@ -43,7 +43,8 @@ final class FirmwareUpdateViewModel: ObservableObject {
 
         switch state {
         case .readingStateFile, .fetchingManifest, .downloadingStack, .downloadingFirmware,
-             .creatingFirmwareDirectory, .uploadingStack, .uploadingFirmware, .requestingInstall:
+             .creatingFirmwareDirectory, .uploadingStack, .uploadingFirmware,
+             .verifyingStack, .verifyingFirmware, .requestingInstall:
             return true
         default:
             return false
@@ -98,6 +99,10 @@ final class FirmwareUpdateViewModel: ObservableObject {
             return "Uploading Stack"
         case .uploadingFirmware:
             return "Uploading Firmware"
+        case .verifyingStack:
+            return "Verifying Stack"
+        case .verifyingFirmware:
+            return "Verifying Firmware"
         case .requestingInstall:
             return "Requesting Install"
         case .completed:
@@ -125,6 +130,8 @@ final class FirmwareUpdateViewModel: ObservableObject {
             return file.targetPath
         case .downloadingFirmware(let file), .uploadingFirmware(let file):
             return file.targetPath
+        case .verifyingStack(let file), .verifyingFirmware(let file):
+            return "Reading back \(file.targetPath) and checking SHA-256."
         case .creatingFirmwareDirectory:
             return "Creating or reusing the FW folder."
         case .requestingInstall:
