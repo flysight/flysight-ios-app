@@ -13,6 +13,7 @@
 		4C3B51CF2DDB00FB007C2081 /* FileExplorerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C3B51CE2DDB00F8007C2081 /* FileExplorerView.swift */; };
 		4C3B51D12DDB0107007C2081 /* LiveDataView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C3B51D02DDB0103007C2081 /* LiveDataView.swift */; };
 		4C3B51D32DDB0116007C2081 /* StartingPistolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C3B51D22DDB010F007C2081 /* StartingPistolView.swift */; };
+		4C68B0412E0DC103004544B1 /* FlySightCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4C68B0402E0DC103004544B1 /* FlySightCore */; };
 		4C8D140E2C16270300C5B5A2 /* FlySightCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4C8D140D2C16270300C5B5A2 /* FlySightCore */; };
 		4CE4E99D2BBF010E002E028E /* FlySightApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE4E99C2BBF010E002E028E /* FlySightApp.swift */; };
 		4CE4E99F2BBF010E002E028E /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE4E99E2BBF010E002E028E /* ContentView.swift */; };
@@ -44,6 +45,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4C8D140E2C16270300C5B5A2 /* FlySightCore in Frameworks */,
+				4C68B0412E0DC103004544B1 /* FlySightCore in Frameworks */,
 				4C2C3CFF2E05F91F009F5BE7 /* FlySightCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -113,6 +115,7 @@
 			packageProductDependencies = (
 				4C8D140D2C16270300C5B5A2 /* FlySightCore */,
 				4C2C3CFE2E05F91F009F5BE7 /* FlySightCore */,
+				4C68B0402E0DC103004544B1 /* FlySightCore */,
 			);
 			productName = FlySight;
 			productReference = 4CE4E9992BBF010E002E028E /* FlySight.app */;
@@ -143,7 +146,7 @@
 			);
 			mainGroup = 4CE4E9902BBF010E002E028E;
 			packageReferences = (
-				4C2C3CFD2E05F91F009F5BE7 /* XCLocalSwiftPackageReference "../FlySightCore" */,
+				4C68B03F2E0DC103004544B1 /* XCLocalSwiftPackageReference "../flysight-ios-core" */,
 			);
 			productRefGroup = 4CE4E99A2BBF010E002E028E /* Products */;
 			projectDirPath = "";
@@ -395,14 +398,18 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		4C2C3CFD2E05F91F009F5BE7 /* XCLocalSwiftPackageReference "../FlySightCore" */ = {
+		4C68B03F2E0DC103004544B1 /* XCLocalSwiftPackageReference "../flysight-ios-core" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../FlySightCore;
+			relativePath = "../flysight-ios-core";
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		4C2C3CFE2E05F91F009F5BE7 /* FlySightCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FlySightCore;
+		};
+		4C68B0402E0DC103004544B1 /* FlySightCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = FlySightCore;
 		};
