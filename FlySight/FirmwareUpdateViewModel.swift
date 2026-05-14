@@ -147,6 +147,10 @@ final class FirmwareUpdateViewModel: ObservableObject {
         bluetoothManager.uploadProgress
     }
 
+    var downloadProgress: Float {
+        bluetoothManager.downloadProgress
+    }
+
     func readDeviceModeForFirmwareUpdate() async -> FlySightCore.DeviceMode? {
         guard !isBusy else { return nil }
 

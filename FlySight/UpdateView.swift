@@ -140,6 +140,11 @@ struct UpdateView: View {
                 Text(String(format: "%.0f%%", viewModel.uploadProgress * 100))
                     .font(.caption)
                     .foregroundColor(.secondary)
+            } else if isVerifying {
+                ProgressView(value: Double(viewModel.downloadProgress), total: 1.0)
+                Text(String(format: "%.0f%%", viewModel.downloadProgress * 100))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             } else if viewModel.isBusy {
                 ProgressView()
             }
@@ -207,6 +212,15 @@ struct UpdateView: View {
     private var isUploading: Bool {
         switch viewModel.state {
         case .uploadingStack, .uploadingFirmware:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private var isVerifying: Bool {
+        switch viewModel.state {
+        case .verifyingStack, .verifyingFirmware:
             return true
         default:
             return false
