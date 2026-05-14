@@ -16,7 +16,7 @@ struct ContentView: View {
     typealias BluetoothManager = FlySightCore.BluetoothManager
 
     enum Tab: Hashable { // Hashable for TabView selection
-        case connect, files, liveData, startPistol
+        case connect, files, liveData, startPistol, update
     }
 
     var body: some View {
@@ -38,6 +38,11 @@ struct ContentView: View {
             StartingPistolView(bluetoothManager: bluetoothManager)
                 .tabItem { Label("Start Pistol", systemImage: "timer") }
                 .tag(Tab.startPistol)
+                .disabled(!isConnected())
+
+            UpdateView(bluetoothManager: bluetoothManager)
+                .tabItem { Label("Update", systemImage: "arrow.down.circle") }
+                .tag(Tab.update)
                 .disabled(!isConnected())
         }
         .onReceive(bluetoothManager.$connectionState) { newState in
@@ -66,7 +71,7 @@ struct ContentView: View {
             }
         case .idle, .scanningKnown, .scanningPairing, .connecting, .discoveringServices, .discoveringCharacteristics, .disconnecting:
             // If not fully connected and on a data tab, switch back to connect tab.
-            if selectedTab == .files || selectedTab == .liveData || selectedTab == .startPistol {
+            if selectedTab == .files || selectedTab == .liveData || selectedTab == .startPistol || selectedTab == .update {
                 if !isConnected() { // Double check, as some states might still imply a valid peripheral exists
                     selectedTab = .connect
                 }

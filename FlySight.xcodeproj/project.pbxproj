@@ -15,6 +15,9 @@
 		4C3B51D32DDB0116007C2081 /* StartingPistolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C3B51D22DDB010F007C2081 /* StartingPistolView.swift */; };
 		4C68B0412E0DC103004544B1 /* FlySightCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4C68B0402E0DC103004544B1 /* FlySightCore */; };
 		4C8D140E2C16270300C5B5A2 /* FlySightCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4C8D140D2C16270300C5B5A2 /* FlySightCore */; };
+		4CF000022F00000100F00002 /* UpdateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CF000012F00000100F00001 /* UpdateView.swift */; };
+		4CF000042F00000100F00004 /* FirmwareUpdateViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CF000032F00000100F00003 /* FirmwareUpdateViewModel.swift */; };
+		4CF000052F00000100F00005 /* FlySightFirmware in Frameworks */ = {isa = PBXBuildFile; productRef = 4CF000062F00000100F00006 /* FlySightFirmware */; };
 		4CE4E99D2BBF010E002E028E /* FlySightApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE4E99C2BBF010E002E028E /* FlySightApp.swift */; };
 		4CE4E99F2BBF010E002E028E /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE4E99E2BBF010E002E028E /* ContentView.swift */; };
 		4CE4E9A12BBF010F002E028E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4CE4E9A02BBF010F002E028E /* Assets.xcassets */; };
@@ -29,6 +32,8 @@
 		4C3B51CE2DDB00F8007C2081 /* FileExplorerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileExplorerView.swift; sourceTree = "<group>"; };
 		4C3B51D02DDB0103007C2081 /* LiveDataView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveDataView.swift; sourceTree = "<group>"; };
 		4C3B51D22DDB010F007C2081 /* StartingPistolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartingPistolView.swift; sourceTree = "<group>"; };
+		4CF000012F00000100F00001 /* UpdateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateView.swift; sourceTree = "<group>"; };
+		4CF000032F00000100F00003 /* FirmwareUpdateViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirmwareUpdateViewModel.swift; sourceTree = "<group>"; };
 		4CE4E9992BBF010E002E028E /* FlySight.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FlySight.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CE4E99C2BBF010E002E028E /* FlySightApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlySightApp.swift; sourceTree = "<group>"; };
 		4CE4E99E2BBF010E002E028E /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -47,6 +52,7 @@
 				4C8D140E2C16270300C5B5A2 /* FlySightCore in Frameworks */,
 				4C68B0412E0DC103004544B1 /* FlySightCore in Frameworks */,
 				4C2C3CFF2E05F91F009F5BE7 /* FlySightCore in Frameworks */,
+				4CF000052F00000100F00005 /* FlySightFirmware in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -75,6 +81,8 @@
 				4C3B51D22DDB010F007C2081 /* StartingPistolView.swift */,
 				4C3B51D02DDB0103007C2081 /* LiveDataView.swift */,
 				4C3B51CE2DDB00F8007C2081 /* FileExplorerView.swift */,
+				4CF000012F00000100F00001 /* UpdateView.swift */,
+				4CF000032F00000100F00003 /* FirmwareUpdateViewModel.swift */,
 				4C3B51CC2DDB00DF007C2081 /* ConnectView.swift */,
 				4C3B51CA2DDB00B0007C2081 /* AddDeviceView.swift */,
 				4CE4E9AF2BBF3BB4002E028E /* Info.plist */,
@@ -116,6 +124,7 @@
 				4C8D140D2C16270300C5B5A2 /* FlySightCore */,
 				4C2C3CFE2E05F91F009F5BE7 /* FlySightCore */,
 				4C68B0402E0DC103004544B1 /* FlySightCore */,
+				4CF000062F00000100F00006 /* FlySightFirmware */,
 			);
 			productName = FlySight;
 			productReference = 4CE4E9992BBF010E002E028E /* FlySight.app */;
@@ -179,6 +188,8 @@
 				4C3B51D12DDB0107007C2081 /* LiveDataView.swift in Sources */,
 				4CE4E99D2BBF010E002E028E /* FlySightApp.swift in Sources */,
 				4C3B51D32DDB0116007C2081 /* StartingPistolView.swift in Sources */,
+				4CF000022F00000100F00002 /* UpdateView.swift in Sources */,
+				4CF000042F00000100F00004 /* FirmwareUpdateViewModel.swift in Sources */,
 				4C3B51CD2DDB00E2007C2081 /* ConnectView.swift in Sources */,
 				4C3B51CB2DDB00B8007C2081 /* AddDeviceView.swift in Sources */,
 				4CE4E9A92BBF010F002E028E /* FlySight.xcdatamodeld in Sources */,
@@ -416,6 +427,11 @@
 		4C8D140D2C16270300C5B5A2 /* FlySightCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = FlySightCore;
+		};
+		4CF000062F00000100F00006 /* FlySightFirmware */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4C68B03F2E0DC103004544B1 /* XCLocalSwiftPackageReference "../flysight-ios-core" */;
+			productName = FlySightFirmware;
 		};
 /* End XCSwiftPackageProductDependency section */
 
