@@ -17,6 +17,7 @@ final class FirmwareUpdateViewModel: ObservableObject {
     @Published private(set) var state: FirmwareUpdateState = .idle
     @Published private(set) var errorMessage: String?
     @Published private(set) var completedResult: FirmwareUpdateResult?
+    @Published private(set) var isPreparingIdleMode = false
 
     private let bluetoothManager: FlySightCore.BluetoothManager
     private var coordinator: FirmwareUpdateCoordinator!
@@ -36,6 +37,10 @@ final class FirmwareUpdateViewModel: ObservableObject {
     }
 
     var isBusy: Bool {
+        if isPreparingIdleMode {
+            return true
+        }
+
         switch state {
         case .readingStateFile, .fetchingManifest, .downloadingStack, .downloadingFirmware,
              .creatingFirmwareDirectory, .uploadingStack, .uploadingFirmware, .requestingInstall:
@@ -55,6 +60,10 @@ final class FirmwareUpdateViewModel: ObservableObject {
     }
 
     var actionTitle: String {
+        if isPreparingIdleMode {
+            return "Switching to Idle"
+        }
+
         switch state {
         case .idle:
             return "Check for Updates"
@@ -66,6 +75,10 @@ final class FirmwareUpdateViewModel: ObservableObject {
     }
 
     var progressTitle: String {
+        if isPreparingIdleMode {
+            return "Switching to Idle"
+        }
+
         switch state {
         case .idle:
             return "Ready"
@@ -95,6 +108,10 @@ final class FirmwareUpdateViewModel: ObservableObject {
     }
 
     var progressDetail: String {
+        if isPreparingIdleMode {
+            return "Requesting idle mode so firmware files can be read and written safely."
+        }
+
         switch state {
         case .idle:
             return "Connect to a FlySight and check for compatible firmware."
@@ -121,6 +138,41 @@ final class FirmwareUpdateViewModel: ObservableObject {
 
     var uploadProgress: Float {
         bluetoothManager.uploadProgress
+    }
+
+    func readDeviceModeForFirmwareUpdate() async -> FlySightCore.DeviceMode? {
+        guard !isBusy else { return nil }
+
+        completedResult = nil
+        errorMessage = nil
+
+        do {
+            return try await bluetoothManager.readDeviceMode()
+        } catch {
+            let message = displayMessage(for: error)
+            errorMessage = message
+            state = .failed(message: message)
+            return nil
+        }
+    }
+
+    func ensureIdleModeForFirmwareUpdate() async -> Bool {
+        guard !isBusy else { return false }
+
+        completedResult = nil
+        errorMessage = nil
+        isPreparingIdleMode = true
+        defer { isPreparingIdleMode = false }
+
+        do {
+            try await bluetoothManager.ensureIdleModeForFirmwareUpdate()
+            return true
+        } catch {
+            let message = displayMessage(for: error)
+            errorMessage = message
+            state = .failed(message: message)
+            return false
+        }
     }
 
     func refreshManifest() {
@@ -183,6 +235,7 @@ final class FirmwareUpdateViewModel: ObservableObject {
         selectedFirmware = nil
         completedResult = nil
         errorMessage = nil
+        isPreparingIdleMode = false
         state = .idle
     }
 
@@ -219,6 +272,7 @@ final class FirmwareUpdateViewModel: ObservableObject {
         selectedFirmware = nil
         completedResult = nil
         errorMessage = nil
+        isPreparingIdleMode = false
         state = .idle
     }
 

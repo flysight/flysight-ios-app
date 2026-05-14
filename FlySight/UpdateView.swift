@@ -12,7 +12,7 @@ import FlySightFirmware
 struct UpdateView: View {
     @ObservedObject var bluetoothManager: FlySightCore.BluetoothManager
     @StateObject private var viewModel: FirmwareUpdateViewModel
-    @State private var showingInstallConfirmation = false
+    @State private var activeAlert: FirmwareUpdateAlert?
 
     init(bluetoothManager: FlySightCore.BluetoothManager) {
         self.bluetoothManager = bluetoothManager
@@ -34,8 +34,8 @@ struct UpdateView: View {
                     viewModel.resetAfterDisconnect()
                 }
             }
-            .alert(isPresented: $showingInstallConfirmation) {
-                installConfirmationAlert()
+            .alert(item: $activeAlert) { alert in
+                alertView(for: alert)
             }
         }
     }
@@ -62,6 +62,7 @@ struct UpdateView: View {
             } else {
                 InfoRow(label: "Firmware", value: bluetoothManager.flysightFirmwareVersion ?? "Not checked")
             }
+            InfoRow(label: "Mode", value: bluetoothManager.deviceMode?.displayName ?? "Unknown")
         }
     }
 
@@ -70,7 +71,7 @@ struct UpdateView: View {
             Toggle("Include Beta", isOn: $viewModel.includeBeta)
                 .disabled(viewModel.isBusy)
 
-            Button(action: viewModel.refreshManifest) {
+            Button(action: refreshButtonTapped) {
                 HStack {
                     if case .readingStateFile = viewModel.state {
                         ProgressView()
@@ -112,7 +113,7 @@ struct UpdateView: View {
             }
 
             Button(action: {
-                showingInstallConfirmation = true
+                installButtonTapped()
             }) {
                 Label("Install Selected Firmware", systemImage: "square.and.arrow.down")
             }
@@ -183,6 +184,10 @@ struct UpdateView: View {
     }
 
     private var statusIcon: some View {
+        if viewModel.isPreparingIdleMode {
+            return Image(systemName: "clock").foregroundColor(.orange)
+        }
+
         switch viewModel.state {
         case .completed:
             return Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
@@ -231,6 +236,75 @@ struct UpdateView: View {
         return "\(pubkey.prefix(6))...\(pubkey.suffix(6))"
     }
 
+    private func refreshButtonTapped() {
+        beginFirmwareAction(.refresh)
+    }
+
+    private func installButtonTapped() {
+        beginFirmwareAction(.install)
+    }
+
+    private func beginFirmwareAction(_ action: FirmwareUpdateAction) {
+        guard !viewModel.isBusy else { return }
+
+        Task { @MainActor in
+            let mode = await currentDeviceModeForUpdatePrompt()
+            guard !viewModel.isBusy else { return }
+            guard let mode = mode else { return }
+
+            if mode.requiresIdleBeforeFirmwareUpdate {
+                activeAlert = .idleModeConfirmation(modeName: mode.displayName, action: action)
+            } else {
+                performFirmwareAction(action)
+            }
+        }
+    }
+
+    private func currentDeviceModeForUpdatePrompt() async -> FlySightCore.DeviceMode? {
+        if let mode = bluetoothManager.deviceMode {
+            return mode
+        }
+
+        return await viewModel.readDeviceModeForFirmwareUpdate()
+    }
+
+    private func continueAfterIdleModeConfirmation(_ action: FirmwareUpdateAction) {
+        Task { @MainActor in
+            let didPrepare = await viewModel.ensureIdleModeForFirmwareUpdate()
+            guard didPrepare else { return }
+            performFirmwareAction(action)
+        }
+    }
+
+    private func performFirmwareAction(_ action: FirmwareUpdateAction) {
+        switch action {
+        case .refresh:
+            viewModel.refreshManifest()
+        case .install:
+            activeAlert = .installConfirmation
+        }
+    }
+
+    private func alertView(for alert: FirmwareUpdateAlert) -> Alert {
+        switch alert {
+        case .idleModeConfirmation(let modeName, let action):
+            return idleModeConfirmationAlert(modeName: modeName, action: action)
+        case .installConfirmation:
+            return installConfirmationAlert()
+        }
+    }
+
+    private func idleModeConfirmationAlert(modeName: String, action: FirmwareUpdateAction) -> Alert {
+        Alert(
+            title: Text("Switch to Idle Mode?"),
+            message: Text("FlySight is currently in \(modeName) mode. Firmware updates require idle mode for file access, so continuing will stop any active logging."),
+            primaryButton: .default(Text("Switch to Idle")) {
+                continueAfterIdleModeConfirmation(action)
+            },
+            secondaryButton: .cancel()
+        )
+    }
+
     private func installConfirmationAlert() -> Alert {
         let version = viewModel.selectedFirmware?.version ?? "selected firmware"
         return Alert(
@@ -241,6 +315,25 @@ struct UpdateView: View {
             },
             secondaryButton: .cancel()
         )
+    }
+}
+
+private enum FirmwareUpdateAction {
+    case refresh
+    case install
+}
+
+private enum FirmwareUpdateAlert: Identifiable {
+    case idleModeConfirmation(modeName: String, action: FirmwareUpdateAction)
+    case installConfirmation
+
+    var id: String {
+        switch self {
+        case .idleModeConfirmation(_, let action):
+            return "idle-\(action)"
+        case .installConfirmation:
+            return "install"
+        }
     }
 }
 
